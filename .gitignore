@@ -1,0 +1,22 @@
+# Visual Studio / MSVC build outputs
+[Bb]uild/
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.suo
+*.user
+*.ncb
+*.sdf
+*.opensdf
+*.vc.db
+ipch/
+.vs/
+.claude/
+.direnv/
+.env
+
+# Temp/Output files
+*.rih
+*.tb
+*.png
