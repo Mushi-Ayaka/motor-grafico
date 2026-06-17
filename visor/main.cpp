@@ -1,424 +1,300 @@
 // Motor Gráfico — Visor 3D interactivo con workspace
-// Capas: os/ + render/ + scene/
+// Punto de entrada refactorizado
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <windowsx.h>
 #include <cstdio>
-#include <string>
-#include "../os/os.h"
-#include "../render/scene.h"
-#include "../render/render.h"
-#include "../scene/scene_graph.h"
-#include "../scene/camera.h"
-#include "../scene/scene_query.h"
-#include "../scene/workspace.h"
+#include <vector>
+
+#include <cstring>
+#include "visor_app.h"
+#include "../render/ray_march.h"
+#include "../render/ray_march_simd.h"
+#include "../render/jit_compiler.h"
 
 using namespace mg;
 
-// ---------------------------------------------------------------------------
-// Global state
-// ---------------------------------------------------------------------------
-
-struct App {
-    HWND hwnd = nullptr;
-    HWND hwnd_viewport = nullptr;
-    HWND hwnd_edit = nullptr;
-    HWND hwnd_status = nullptr;
-
-    Renderer renderer;
-
-    // Scene layer
-    scene::SceneGraph       graph;
-    scene::CameraController cam_ctrl;
-    scene::Workspace        workspace;
-    scene::Bvh              bvh;
-
-    bool dirty = true;
-    bool running = true;
-    bool mouse_look = false;
-    POINT last_mouse;
-
-    std::string scene_path;
-    char edit_buffer[32768] = {};
-} g_app;
-
-// ---------------------------------------------------------------------------
-// Scene loading
-// ---------------------------------------------------------------------------
-
-// Per-node world AABBs for AABB early-out (recomputed after scene load or camera move)
-static std::vector<Aabb> g_aabbs;
-
-static void rebuildAabbs() {
-    g_aabbs.resize(g_app.graph.nodes.size());
-    for (u32 i = 0; i < (u32)g_app.graph.nodes.size(); i++) {
-        g_app.graph.computeLocalAabb(i, g_app.renderer.scene);
-    }
-    g_app.graph.updateWorldTransforms();
-    for (u32 i = 0; i < (u32)g_app.graph.nodes.size(); i++) {
-        g_aabbs[i] = g_app.graph.getWorldAabb(i);
+static FILE* g_bench_log = nullptr;
+static void bprintf(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+    if (g_bench_log) {
+        va_list args2;
+        va_start(args2, fmt);
+        vfprintf(g_bench_log, fmt, args2);
+        va_end(args2);
+        fflush(g_bench_log);
     }
 }
 
-// BVH query callback (called per ray from renderScene)
-static u32 bvhQuery(void* ctx, const Vec3& ro, const Vec3& rd, u32* out, u32 max) {
-    (void)ctx;
-    if (g_app.bvh.nodes.empty()) return 0;
-    static std::vector<u32> tmp;
-    g_app.bvh.query(ro, rd, tmp);
-    u32 n = (u32)tmp.size() < max ? (u32)tmp.size() : max;
-    for (u32 i = 0; i < n; i++) out[i] = tmp[i];
-    return n;
-}
+static int benchmark(const wchar_t* path) {
+    fopen_s(&g_bench_log, "benchmark_result.txt", "w");
 
-static void loadScene(const wchar_t* path) {
+
     FileMapping fm;
     if (!fm.open(path)) {
-        g_app.renderer.scene.loadDefault();
-        return;
+        bprintf("ERROR: no se pudo abrir %ws\n", path);
+        return 1;
     }
-    g_app.renderer.load(fm);
+
+    OntScene sc;
+    if (!sc.loadOnt(fm)) {
+        bprintf("ERROR: no se pudo cargar .ont\n");
+        return 1;
+    }
+
+    bool run_scalar = false;
+    LPCWSTR cmdLine = GetCommandLineW();
+    if (cmdLine && wcsstr(cmdLine, L"--scalar") != nullptr) {
+        run_scalar = true;
+    }
+
+    // Try companion .obs
+    std::wstring obs_path(path);
+    size_t dot = obs_path.rfind(L'.');
+    if (dot != std::wstring::npos) {
+        obs_path = obs_path.substr(0, dot) + L".obs";
+        FileMapping obs_fm;
+        if (obs_fm.open(obs_path.c_str())) {
+            sc.loadObs(obs_fm);
+            sc.applyObs();
+            obs_fm.close();
+            bprintf("Cargado .obs: %ws\n", obs_path.c_str());
+        }
+    }
+
+    JitCompiler jit;
+    jit.init();
+    jit.compileScene(sc);
+
+    bprintf("Escena: %u nodos, %u BVH, %u materiales, %u bytecode bytes\n",
+           sc.header->node_count, sc.header->bvh_count,
+           sc.header->material_count, sc.header->bytecode_size);
+    bprintf("Camara: pos=(%.2f,%.2f,%.2f) target=(%.2f,%.2f,%.2f) fov=%.1f\n",
+           sc.camera.position.x, sc.camera.position.y, sc.camera.position.z,
+           sc.camera.target.x, sc.camera.target.y, sc.camera.target.z,
+           sc.camera.fov);
+    bprintf("Resolucion: %u x %u\n", sc.width, sc.height);
+
+    Arena arena;
+    arena.init(64 * 1024 * 1024);
+    Frame fb;
+
+    // Render at .obs resolution first
+    f32 w = 0.0f;
+    fb.init(arena, (int)sc.width, (int)sc.height);
+    LARGE_INTEGER freq, t0, t1;
+    QueryPerformanceFrequency(&freq);
+    f32 ms = 0.0f;
+
+    if (run_scalar) {
+        bprintf("Renderizando 800x600 Scalar ST...\n");
+        QueryPerformanceCounter(&t0);
+        renderOntScene(sc, fb, w);
+        QueryPerformanceCounter(&t1);
+        ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+        bprintf("Render 800x600 (Scalar ST): %.1f ms\n", ms);
+
+        bprintf("Renderizando 800x600 Scalar MT...\n");
+        QueryPerformanceCounter(&t0);
+        renderOntSceneMT(sc, fb, w);
+        QueryPerformanceCounter(&t1);
+        ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+        bprintf("Render 800x600 (Scalar MT): %.1f ms\n", ms);
+    }
+
+    // Now at larger resolution (simulating viewport)
+    arena.reset();
+    int vp_w = 1000, vp_h = 700;
+    fb.init(arena, vp_w, vp_h);
+    bprintf("\n--- Viewport simulado %dx%d ---\n", vp_w, vp_h);
+
+    if (run_scalar) {
+        bprintf("Single-thread:\n");
+        QueryPerformanceCounter(&t0);
+        renderOntScene(sc, fb, w);
+        QueryPerformanceCounter(&t1);
+        ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+        bprintf("  Render: %.1f ms (%.1f FPS)\n", ms, 1000.0f / ms);
+
+        bprintf("Multi-thread:\n");
+        arena.reset();
+        fb.init(arena, vp_w, vp_h);
+        QueryPerformanceCounter(&t0);
+        renderOntSceneMT(sc, fb, w);
+        QueryPerformanceCounter(&t1);
+        ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+        bprintf("  Render: %.1f ms (%.1f FPS)\n", ms, 1000.0f / ms);
+    }
+
+    if (run_scalar) {
+        // Test with camera INSIDE geometry (simulates WASD into scene)
+        bprintf("\n--- Camara DENTRO (MT) ---\n");
+        sc.camera.position = {0.0f, 0.0f, 0.0f}; // inside sphere at origin
+        sc.camera.target = {0.0f, 0.0f, 1.0f};
+        arena.reset();
+        fb.init(arena, vp_w, vp_h);
+        QueryPerformanceCounter(&t0);
+        renderOntSceneMT(sc, fb, w);
+        QueryPerformanceCounter(&t1);
+        ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+        bprintf("  Render: %.1f ms (%.1f FPS)\n", ms, 1000.0f / ms);
+
+        // Test with camera just outside (near surface)
+        bprintf("\n--- Camara CERCA de superficie (MT) ---\n");
+        sc.camera.position = {0.0f, 0.0f, 1.01f}; // just outside sphere radius 1
+        sc.camera.target = {0.0f, 0.0f, 0.0f};
+        arena.reset();
+        fb.init(arena, vp_w, vp_h);
+        QueryPerformanceCounter(&t0);
+        renderOntSceneMT(sc, fb, w);
+        QueryPerformanceCounter(&t1);
+        ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+        bprintf("  Render: %.1f ms (%.1f FPS)\n", ms, 1000.0f / ms);
+    }
+
+    // --- SIMD benchmark ---
+    bprintf("\n========== SIMD Packet Tracing ==========\n");
+
+    // Restore camera
+    sc.camera.position = {0.0f, 0.0f, 3.0f};
+    sc.camera.target = {0.0f, 0.0f, 0.0f};
+
+    bprintf("SIMD Single-thread:\n");
+    arena.reset();
+    fb.init(arena, vp_w, vp_h);
+    QueryPerformanceCounter(&t0);
+    renderOntSceneSIMD(sc, fb, w, (sc.has_obs && !sc.obs.lights.empty()) ? sc.obs.lights.data() : nullptr,
+                       (u32)(sc.has_obs ? sc.obs.lights.size() : 0),
+                       sc.has_obs && sc.obs.has_background ? sc.obs.background : sc.background,
+                       sc.pipeline);
+    QueryPerformanceCounter(&t1);
+    ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+    bprintf("  Render: %.1f ms (%.1f FPS)\n", ms, 1000.0f / ms);
+
+    bprintf("SIMD Multi-thread:\n");
+    arena.reset();
+    fb.init(arena, vp_w, vp_h);
+    QueryPerformanceCounter(&t0);
+    renderOntSceneMTSIMD(sc, fb, w);
+    QueryPerformanceCounter(&t1);
+    ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+    bprintf("  Render: %.1f ms (%.1f FPS)\n", ms, 1000.0f / ms);
+
+    // Full HD
+    bprintf("\n--- Full HD (1920x1080) ---\n");
+    arena.reset();
+    fb.init(arena, 1920, 1080);
+    QueryPerformanceCounter(&t0);
+    renderOntSceneMTSIMD(sc, fb, w);
+    QueryPerformanceCounter(&t1);
+    ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+    bprintf("  SIMD MT: %.1f ms (%.1f FPS)\n", ms, 1000.0f / ms);
+
+    arena.reset();
+    fb.init(arena, 1920, 1080);
+    QueryPerformanceCounter(&t0);
+    renderOntSceneMT(sc, fb, w);
+    QueryPerformanceCounter(&t1);
+    ms = (f32)(t1.QuadPart - t0.QuadPart) * 1000.0f / (f32)freq.QuadPart;
+    bprintf("  Scalar MT: %.1f ms (%.1f FPS)\n", ms, 1000.0f / ms);
+
+    arena.shutdown();
     fm.close();
+    if (g_bench_log) fclose(g_bench_log);
+    return 0;
+}
 
-    // Init scene graph
-    g_app.graph.init(g_app.renderer.scene);
-    g_app.graph.updateWorldTransforms();
+int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR lpCmdLine, int) {
+    // Check for --bench-vulkan (must check before --bench to avoid substring match)
+    bool bench_vulkan = (lpCmdLine && strstr(lpCmdLine, "--bench-vulkan") != nullptr);
 
-    // Compute AABBs + build BVH when there are SDF leaves
-    bool has_sdf_leaves = false;
-    for (u32 i = 0; i < (u32)g_app.graph.nodes.size(); i++) {
-        if (g_app.renderer.scene.nodes[i].type == NodeType::SDF && !g_app.renderer.scene.nodes[i].is_compound_child) {
-            has_sdf_leaves = true;
-            break;
+    // Check for --bench argument: visor.exe "<ruta.ont>" --bench
+    if (lpCmdLine && !bench_vulkan && strstr(lpCmdLine, "--bench") != nullptr) {
+        wchar_t path[MAX_PATH] = {0};
+        // Parse the first quoted or unquoted arg before --bench
+        int len = (int)strlen(lpCmdLine);
+        char ont_path_a[MAX_PATH] = {0};
+        if (lpCmdLine[0] == '"') {
+            // quoted
+            const char* end = strchr(lpCmdLine + 1, '"');
+            if (end) strncpy_s(ont_path_a, lpCmdLine + 1, end - lpCmdLine - 1);
+        } else {
+            // unquoted — up to first space
+            const char* sp = strchr(lpCmdLine, ' ');
+            if (sp) strncpy_s(ont_path_a, lpCmdLine, sp - lpCmdLine);
+            else strncpy_s(ont_path_a, lpCmdLine, MAX_PATH - 1);
         }
-    }
-    rebuildAabbs();
-    if (has_sdf_leaves) {
-        g_app.bvh.build(g_app.graph, g_app.renderer.scene);
-    }
-
-    // Camera controller
-    g_app.cam_ctrl.setOrbit(g_app.renderer.scene.camera.target, 5.0f, 0, 0.5f);
-
-    // Workspace
-    g_app.workspace.init();
-    g_app.workspace.active().w = g_app.renderer.scene.width;
-    g_app.workspace.active().h = g_app.renderer.scene.height;
-
-    g_app.dirty = true;
-}
-
-static void rebuildScene() {
-    g_app.graph.init(g_app.renderer.scene);
-    rebuildAabbs();
-    bool has_sdf_leaves = false;
-    for (u32 i = 0; i < (u32)g_app.graph.nodes.size(); i++) {
-        if (g_app.renderer.scene.nodes[i].type == NodeType::SDF && !g_app.renderer.scene.nodes[i].is_compound_child) {
-            has_sdf_leaves = true; break;
+        if (ont_path_a[0] != '\0')
+            MultiByteToWideChar(CP_UTF8, 0, ont_path_a, -1, path, MAX_PATH);
+        else {
+            wchar_t exe_dir[MAX_PATH];
+            GetModuleFileNameW(nullptr, exe_dir, MAX_PATH);
+            wchar_t* p = wcsrchr(exe_dir, L'\\');
+            if (p) *p = L'\0';
+            wcscpy_s(path, exe_dir);
+            wcscat_s(path, L"\\test_custom.ont");
         }
-    }
-    if (has_sdf_leaves) g_app.bvh.build(g_app.graph, g_app.renderer.scene);
-}
-
-// ---------------------------------------------------------------------------
-// Camera controls
-// ---------------------------------------------------------------------------
-
-static void updateCamera(float dt) {
-    // WASD + QE movement in free fly mode
-    bool fwd = (GetAsyncKeyState('W') & 0x8000) != 0;
-    bool bwd = (GetAsyncKeyState('S') & 0x8000) != 0;
-    bool lft = (GetAsyncKeyState('A') & 0x8000) != 0;
-    bool rgt = (GetAsyncKeyState('D') & 0x8000) != 0;
-    bool up  = (GetAsyncKeyState('Q') & 0x8000) != 0;
-    bool dwn = (GetAsyncKeyState('E') & 0x8000) != 0;
-
-    g_app.cam_ctrl.updateFly(dt, fwd, bwd, lft, rgt, up, dwn);
-
-    // Apply to render camera
-    g_app.cam_ctrl.applyTo(g_app.renderer.scene.camera);
-}
-
-// ---------------------------------------------------------------------------
-// Viewport rendering
-// ---------------------------------------------------------------------------
-
-static void renderFrame() {
-    int w = g_app.workspace.active().w;
-    int h = g_app.workspace.active().h;
-    if (!g_aabbs.empty() && !g_app.bvh.nodes.empty()) {
-        SceneQuery sq;
-        sq.aabbs = g_aabbs.data();
-        sq.query_fn = bvhQuery;
-        g_app.renderer.render(w, h, sq);
-    } else if (!g_aabbs.empty()) {
-        g_app.renderer.render(w, h, g_aabbs.data(), nullptr, 0);
-    } else {
-        g_app.renderer.render(w, h);
-    }
-}
-
-static void paintViewport(HDC hdc) {
-    if (!g_app.renderer.fb.pixels) {
-        RECT rc;
-        GetClientRect(g_app.hwnd_viewport, &rc);
-        Vec3 bg = g_app.renderer.scene.background;
-        HBRUSH brush = CreateSolidBrush(RGB(
-            (int)(bg.x * 255), (int)(bg.y * 255), (int)(bg.z * 255)));
-        FillRect(hdc, &rc, brush);
-        DeleteObject(brush);
-        return;
+        return benchmark(path);
     }
 
-    BITMAPINFO bmi = {};
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = g_app.renderer.fb.width;
-    bmi.bmiHeader.biHeight = -(int)g_app.renderer.fb.height;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-
-    SetDIBitsToDevice(hdc, 0, 0, g_app.renderer.fb.width, g_app.renderer.fb.height,
-                      0, 0, 0, g_app.renderer.fb.height,
-                      g_app.renderer.fb.pixels, &bmi, DIB_RGB_COLORS);
-}
-
-// ---------------------------------------------------------------------------
-// Window procedure
-// ---------------------------------------------------------------------------
-
-static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-        case WM_DESTROY:
-            g_app.running = false;
-            PostQuitMessage(0);
-            return 0;
-
-        case WM_SIZE: {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
-            int w = rc.right - rc.left;
-            int h = rc.bottom - rc.top;
-            int vp_w = w - 300;
-            if (vp_w < 100) vp_w = 100;
-            if (g_app.hwnd_viewport)
-                SetWindowPos(g_app.hwnd_viewport, nullptr, 0, 0, vp_w, h, SWP_NOMOVE | SWP_NOZORDER);
-            if (g_app.hwnd_edit)
-                SetWindowPos(g_app.hwnd_edit, nullptr, vp_w, 0, w - vp_w, h - 20, SWP_NOZORDER);
-            if (g_app.hwnd_status)
-                SetWindowPos(g_app.hwnd_status, nullptr, vp_w, h - 20, w - vp_w, 20, SWP_NOZORDER);
-            g_app.workspace.active().w = vp_w;
-            g_app.workspace.active().h = h;
-            g_app.dirty = g_app.hwnd_viewport != nullptr;
-            return 0;
-        }
-
-        case WM_KEYDOWN:
-            if (wp == VK_F5) {
-                g_app.dirty = true;
-            }
-            if (wp == VK_F1) {
-                g_app.mouse_look = !g_app.mouse_look;
-                if (g_app.mouse_look) {
-                    GetCursorPos(&g_app.last_mouse);
-                    SetCapture(g_app.hwnd_viewport);
-                    ShowCursor(FALSE);
-                } else {
-                    ReleaseCapture();
-                    ShowCursor(TRUE);
-                    SetCursorPos(g_app.last_mouse.x, g_app.last_mouse.y);
+    wchar_t full_path[MAX_PATH] = {0};
+    
+    // Parse first argument (before --bench-vulkan)
+    if (lpCmdLine && lpCmdLine[0] != '\0') {
+        char ont_path_a[MAX_PATH] = {0};
+        if (lpCmdLine[0] == '"') {
+            const char* end = strchr(lpCmdLine + 1, '"');
+            if (end) strncpy_s(ont_path_a, lpCmdLine + 1, end - lpCmdLine - 1);
+        } else {
+            const char* sp = strchr(lpCmdLine, ' ');
+            if (sp) {
+                size_t len = sp - lpCmdLine;
+                // Skip leading spaces
+                const char* start = lpCmdLine;
+                while (*start == ' ') start++;
+                if (start < sp) {
+                    len = sp - start;
+                    strncpy_s(ont_path_a, start, len);
                 }
+            } else {
+                strncpy_s(ont_path_a, lpCmdLine, MAX_PATH - 1);
             }
-            if (wp == VK_OEM_PLUS || wp == VK_ADD) {
-                g_app.cam_ctrl.zoom(-0.5f);
-                g_app.cam_ctrl.applyTo(g_app.renderer.scene.camera);
-                g_app.dirty = true;
-            }
-            if (wp == VK_OEM_MINUS || wp == VK_SUBTRACT) {
-                g_app.cam_ctrl.zoom(0.5f);
-                g_app.cam_ctrl.applyTo(g_app.renderer.scene.camera);
-                g_app.dirty = true;
-            }
-            return 0;
-
-        case WM_MOUSEMOVE:
-            if (g_app.mouse_look && g_app.hwnd_viewport == GetCapture()) {
-                int dx = GET_X_LPARAM(lp) - g_app.workspace.active().w / 2;
-                int dy = GET_Y_LPARAM(lp) - g_app.workspace.active().h / 2;
-                RECT rc;
-                GetClientRect(g_app.hwnd_viewport, &rc);
-                SetCursorPos(rc.left + g_app.workspace.active().w / 2,
-                             rc.top + g_app.workspace.active().h / 2);
-
-                g_app.cam_ctrl.orbitRotate((f32)dx, (f32)(-dy));
-                g_app.cam_ctrl.applyTo(g_app.renderer.scene.camera);
-                g_app.dirty = true;
-            }
-            return 0;
-
-        case WM_COMMAND:
-            if (HIWORD(wp) == EN_CHANGE && (HWND)lp == g_app.hwnd_edit) {
-            }
-            return 0;
-    }
-    return DefWindowProc(hwnd, msg, wp, lp);
-}
-
-// ---------------------------------------------------------------------------
-// Viewport window procedure
-// ---------------------------------------------------------------------------
-
-static LRESULT CALLBACK ViewportProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch (msg) {
-        case WM_PAINT: {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hwnd, &ps);
-            paintViewport(hdc);
-            EndPaint(hwnd, &ps);
-            return 0;
         }
-        case WM_ERASEBKGND:
-            return 1;
+        if (ont_path_a[0] != '\0')
+            MultiByteToWideChar(CP_UTF8, 0, ont_path_a, -1, full_path, MAX_PATH);
+        // If path still empty or file doesn't exist, fall through to defaults
+        if (full_path[0] == L'\0' || GetFileAttributesW(full_path) == INVALID_FILE_ATTRIBUTES) {
+            full_path[0] = L'\0';
+        }
     }
-    return DefWindowProc(hwnd, msg, wp, lp);
-}
+    if (full_path[0] == L'\0') {
+        wchar_t exe_dir[MAX_PATH];
+        GetModuleFileNameW(nullptr, exe_dir, MAX_PATH);
+        wchar_t* p = wcsrchr(exe_dir, L'\\');
+        if (p) *p = L'\0';
 
-// ============================================================================
-// WinMain
-// ============================================================================
-
-int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
-    // Resolve .rih path
-    wchar_t full_path[MAX_PATH];
-    wchar_t exe_dir[MAX_PATH];
-    GetModuleFileNameW(nullptr, exe_dir, MAX_PATH);
-    wchar_t* p = wcsrchr(exe_dir, L'\\');
-    if (p) *p = L'\0';
-    wcscpy_s(full_path, exe_dir);
-    wcscat_s(full_path, L"\\..\\..\\LENGUA~1\\ejemplos\\bodegon.rih");
-
-    loadScene(full_path);
-    if (g_app.renderer.scene.nodes.empty()) {
-        g_app.renderer.scene.loadDefault();
-        rebuildScene();
-    }
-
-    // Default light if none
-    if (g_app.renderer.scene.lights.empty()) {
-        Light def;
-        def.name = "default";
-        def.type = LightType::DIRECTIONAL;
-        def.direction = {0.3f, 0.8f, 0.5f};
-        g_app.renderer.scene.lights.push_back(def);
+        wcscpy_s(full_path, exe_dir);
+        wcscat_s(full_path, L"\\..\\..\\Lenguaje Hermetico\\libreria\\escenas\\catedral_hermetica_0000.ont");
+        if (GetFileAttributesW(full_path) == INVALID_FILE_ATTRIBUTES) {
+            wcscpy_s(full_path, exe_dir);
+            wcscat_s(full_path, L"\\test_custom.ont");
+        }
+        if (GetFileAttributesW(full_path) == INVALID_FILE_ATTRIBUTES) {
+            wcscpy_s(full_path, exe_dir);
+            wcscat_s(full_path, L"\\..\\..\\Lenguaje Hermetico\\libreria\\escenas\\test_suelo.rih");
+        }
     }
 
-    // Camera controller
-    g_app.cam_ctrl.setOrbit(g_app.renderer.scene.camera.target, 5.0f, 0, 0.5f);
-    g_app.cam_ctrl.applyTo(g_app.renderer.scene.camera);
-
-    // Workspace init
-    g_app.workspace.init();
-    g_app.workspace.active().w = g_app.renderer.scene.width;
-    g_app.workspace.active().h = g_app.renderer.scene.height;
-
-    // Register window classes
-    const char* CLASS_NAME = "MotorGrafico";
-    const char* VIEWPORT_NAME = "MGViewport";
-    const char* EDIT_NAME = "MGEdit";
-
-    WNDCLASS wc = {};
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = hInst;
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszClassName = CLASS_NAME;
-    if (!RegisterClass(&wc)) {
-        MessageBox(nullptr, "Fallo RegisterClass (main)", "Error", MB_OK);
+    VisorApp app;
+    if (!app.init(hInst, full_path)) {
+        MessageBox(nullptr, "Fallo al inicializar VisorApp", "Error", MB_OK);
         return 1;
     }
 
-    WNDCLASS vc = {};
-    vc.lpfnWndProc = ViewportProc;
-    vc.hInstance = hInst;
-    vc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    vc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-    vc.lpszClassName = VIEWPORT_NAME;
-    if (!RegisterClass(&vc)) {
-        MessageBox(nullptr, "Fallo RegisterClass (viewport)", "Error", MB_OK);
-        return 1;
-    }
-
-    // Create window
-    g_app.hwnd = CreateWindowEx(0, CLASS_NAME, "Motor Grafico — Visor 3D",
-        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 1100, 700,
-        nullptr, nullptr, hInst, nullptr);
-    if (!g_app.hwnd) {
-        MessageBox(nullptr, "Fallo CreateWindow", "Error", MB_OK);
-        return 1;
-    }
-
-    // Create child windows
-    RECT rc;
-    GetClientRect(g_app.hwnd, &rc);
-    int w = rc.right - rc.left;
-    int h = rc.bottom - rc.top;
-    int vp_w = w - 300;
-    if (vp_w < 100) vp_w = 100;
-
-    g_app.hwnd_viewport = CreateWindowEx(0, VIEWPORT_NAME, nullptr,
-        WS_CHILD | WS_VISIBLE | WS_BORDER,
-        0, 0, vp_w, h, g_app.hwnd, nullptr, hInst, nullptr);
-    g_app.hwnd_edit = CreateWindowEx(0, "EDIT", nullptr,
-        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL |
-        WS_VSCROLL | ES_WANTRETURN,
-        vp_w, 0, w - vp_w, h - 20, g_app.hwnd, nullptr, hInst, nullptr);
-    g_app.hwnd_status = CreateWindowEx(0, "STATIC",
-        "F1: mouse look | Mouse drag: orbit | +/-: zoom | F5: render | WASD+QE: free fly",
-        WS_CHILD | WS_VISIBLE,
-        vp_w, h - 20, w - vp_w, 20, g_app.hwnd, nullptr, hInst, nullptr);
-
-    // Set initial editor text
-    std::string edit_text = "// Motor Grafico — Workspace\n"
-        "// F1: camara libre | F5: re-render\n"
-        "// Mouse drag: orbit | +/-: zoom\n"
-        "// WASD+QE: mover (free fly)\n\n"
-        "// Escena cargada\n";
-    SetWindowText(g_app.hwnd_edit, edit_text.c_str());
-
-    ShowWindow(g_app.hwnd, SW_SHOW);
-
-    // Set title
-    char title[512];
-    snprintf(title, sizeof(title), "Motor Grafico [%zu nodes, %zu mats, BVH=%zu nodes]",
-        g_app.renderer.scene.nodes.size(),
-        g_app.renderer.scene.materials.size(),
-        g_app.bvh.nodes.size());
-    SetWindowText(g_app.hwnd, title);
-
-    // Render resolution
-    g_app.renderer.time = 0.0f;
-    g_app.dirty = true;
-
-    // Message loop
-    MSG msg = {};
-    while (g_app.running) {
-        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-
-        updateCamera(0.016f);
-
-        if (g_app.dirty) {
-            renderFrame();
-            g_app.dirty = false;
-            InvalidateRect(g_app.hwnd_viewport, nullptr, FALSE);
-            UpdateWindow(g_app.hwnd_viewport);
-        }
-
-        Sleep(16);
-    }
-
+    app.bench_vulkan = bench_vulkan;
+    app.run();
     return 0;
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "scene.h"
+#include "bytecode_vm.h"
 #include <cmath>
 #include <algorithm>
 
@@ -15,6 +16,8 @@ inline f32 evalExpr(const std::string& s, f32 x, f32 y, f32 z, f32 w) {
 }
 
 inline f32 evalSdfExpr(const Expr& e, f32 x, f32 y, f32 z, f32 w) {
+    if (!e.bytecode.empty())
+        return execBc(e.bytecode, x, y, z, w);
     return e.is_expr ? evalExpr(e.expression, x, y, z, w) : e.constant;
 }
 
@@ -111,6 +114,8 @@ inline f32 evalSdfNode(const Scene& scene, const Node& node, Vec3 p, f32 w,
     else if (t == "smooth_union")
         d = opSmoothUnion(evalSdfTree(scene, sdf.child_a, p, w, transforms),
                           evalSdfTree(scene, sdf.child_b, p, w, transforms), p0);
+    else if (t == "custom")
+        d = evalSdfExpr(sdf.params[0], p.x, p.y, p.z, w);
 
     if (!sdf.displace_expr.empty())
         d += evalExpr(sdf.displace_expr, p.x, p.y, p.z, w);

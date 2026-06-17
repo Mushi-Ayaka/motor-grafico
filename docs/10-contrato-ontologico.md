@@ -23,6 +23,7 @@ sin texturas externas, sin redes neuronales, sin ruido estadístico, sin post-pr
 | **SceneGraph** | Grafo jerárquico con AABBs | vector de SceneNode, dirty propagation |
 | **CameraController** | Control de cámara interactivo | mode (ORBIT|FREE_FLY|FOLLOW), orbit params |
 | **Bvh** | Aceleración espacial | árbol binario, query ray-AABB |
+| **BrickMap** | Sparse Voxel Octree-lite para geometría SDF estática | origin, top_cell_size, voxel_size, top_indices[], bricks[] |
 | **Project** | Archivo de proyecto | sources, camera snapshot, workspace state |
 | **Viewport** | Ventana de render | position, size, camera_node |
 | **Layer** | Grupo de visibilidad | name, visible, solo, opacity |
@@ -60,6 +61,8 @@ Workspace 1──1 Timeline
 6. AABB early-out es conservador: nunca descarta un nodo que podría estar más cerca que el mejor SDF actual
 7. `w` es la variable de tiempo canónica; `t` es alias retrocompatible
 8. `FileMapping` es el único mecanismo de I/O — prohibido `std::ifstream`/`std::filesystem`
+9. **`d_min` Conservador absoluto (`0.0f`)**: El motor asume siempre una distancia mínima al vacío de `0.0f` para nodos con geometría en su AABB. Valores "seguros" (ej. `0.01f`) causan agujeros negros. El motor invalida explícitamente cualquier `d_min > 0.005f` como mitigación defensiva.
+10. **Budget Espacial Dinámico**: El bytecode dinámico nunca se evalúa ciegamente. Debe superar primero una validación AABB de bajo coste.
 
 ## Estrategias de renderizado
 
@@ -72,7 +75,22 @@ for step in 0..max_steps:
     if t > max_dist: return miss
 ```
 
-### Shading (Blinn-Phong multi-luz)
+### Pipeline ontológico (.ont + .obs)
+
+1. Compilador Hermético produce `.ont` (bytecode SDF + BVH) y `.obs` (cámara, luces, timeline)
+2. Visor carga `.ont` → `OntScene`, `.obs` → `OntObservation.applyObs(scene)`
+3. `.obs` es opcional — si no existe, defaults: cámara (0,0,3)→(0,0,0), fov=50, fondo negro
+4. `.obs` es extensible por flags — nuevas secciones no rompen compatibilidad
+
+### SIMD Packet Tracing
+
+1. 4 píxeles adyacentes → 4 rayos → BVH lockstep (`bvhEval4`)
+2. AABB SSE test en cada nodo → máscara 4-bit de lanes activas
+3. En hoja: transformación SSE 4×4 (`applyMatrix4`) → bytecode VM SSE (`execBcRaw4`)
+4. Divergencia (cuando 4 puntos tocan diferentes AABBs): lanes individuales
+5. Coherente (caso común): full SIMD throughput
+
+### Shading (Cook-Torrance GGX multi-luz)
 ```python
 for light in lights:
     ldir = normalize(light.direction)
@@ -89,7 +107,12 @@ result += emission
 1. **AABB early-out**: distancia punto-AABB > best → skip
 2. **Epsilon adaptativo**: `eps = hit_eps * (1 + t * 0.01)`
 3. **BVH**: árbol espacial → solo evaluar hojas intersectadas por el rayo
-4. **Transform precompute**: array plano de translate por nodo (evita recomputar applyTransform)
+ 4. **Transform precompute**: array plano de translate por nodo (evita recomputar applyTransform)
+ 5. **Material-finding integrado en bvhEval**: out_material opcional, evita segundo BVH traversal post-hit
+ 6. **SIMD packet tracing**: execBcRaw4 + bvhEval4, 4-wide SSE
+  7. **Multi-threading + SIMD**: renderOntSceneMTSIMD, bandas de filas con paquetes SIMD cada una
+  8. **BrickMap V1**: buildBrickMap (precomputa SDF estático en sparse voxels) → sampleBrickMap (lookup trilineal + dinámicos JIT)
+  9. **Budget Espacial Defensivo**: La evaluación dinámica o compilada usa AABB checks (escalares o mediante SIMD en `bvhEval4`/`evalBrickHybrid4`) para suprimir los cuellos de botella de ejecuciones inútiles.
 
 ## Contrato de capas
 
@@ -104,3 +127,12 @@ rhi/ → os/
 `render/` NO incluye nada de `scene/`. La comunicación se hace vía:
 - `Aabb*` (tipo compartido en `render/scene.h`)
 - `SceneQuery` (callback + contexto, definido en `render/ray_march.h`)
+
+## Invariantes adicionales (ontológico)
+
+9. `.obs` debe ser legible sin `.ont` (solo describe observación, no geometría)
+10. `execBcRaw4` debe producir exactamente los mismos resultados que `execBcRaw` para cualquier entrada válida
+11. El número de threads usados por `renderOntSceneMTSIMD` es `min(n_cores, (height+31)/32)` — no más de uno por 32 filas
+12. `bvhEval4` preserva `node_idx[4]` por lane — divergencia nunca contamina otros lanes
+13. `evalHybrid` debe producir exactamente el mismo resultado que `evalOntSdfTree` para cualquier entrada (el grid es solo aceleración, no aproximación)
+14. `classifyOntNodes` es conservador: un falso positivo (marcar estático como dinámico) es correcto pero sub-óptimo. Un falso negativo (marcar dinámico como estático) es un bug

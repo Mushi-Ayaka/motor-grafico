@@ -126,3 +126,54 @@ f32 eps = hit_eps * (1.0f + t * 0.01f);
 - Profundidad máxima 16
 - Hojas de ≤4 nodos
 - No se usa a menos que el lenguaje produzca datos de volumen (condicional)
+
+## Formato .obs (Observation)
+
+Archivo binario independiente del `.ont`, guarda datos de observación de la escena.
+Todas las secciones son opcionales, identificadas por flags en el header.
+
+### ObsHeader (8 bytes)
+
+| Offset | Campo | Tipo | Descripción |
+|--------|-------|------|-------------|
+| 0 | magic | u32 | `0x53424F21` ("!OBS") |
+| 4 | flags | u32 | Bitmask de secciones presentes |
+
+Flags: `OBS_CAMERA=1`, `OBS_LIGHTS=2`, `OBS_TIMELINE=4`, `OBS_BACKGROUND=8`, `OBS_RESOLUTION=16`
+
+### Secciones (orden fijo tras header)
+
+1. **ObsCamera** (48 bytes) — position x3, target x3, up x3 (cada f32), fov f32
+2. **ObsLightsHeader** (4 bytes) — count u32
+3. **ObsLight** × count (36 bytes c/u) — type u32 (DIRECTIONAL=0, POINT=1), direction x3, position x3, color x3 (f32), intensity f32, falloff f32
+4. **ObsTimeline** (24 bytes) — time f32, frame u32, start_frame u32, end_frame u32, fps u32, loop u32
+5. **ObsBackground** (12 bytes) — top_color x3, horizon_color x3, bottom_color x3 (f32)
+6. **ObsResolution** (8 bytes) — width u32, height u32
+
+### Extensibilidad
+
+Nuevas secciones se añaden al final con nuevos flags. La aplicación ignora flags
+desconocidos — compatible hacia adelante.
+
+## PipelineConfig
+
+Estructura que agrupa parámetros de renderizado configurables en `render/scene.h`.
+
+| Campo | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `trace_max_steps` | int | 128 | Pasos máximos del ray march |
+| `trace_hit_threshold` | f32 | 0.001 | Umbral de detección de impacto |
+| `trace_t_min` | f32 | 0.01 | Distancia mínima de inicio del rayo |
+| `trace_t_max` | f32 | 50.0 | Distancia máxima del rayo |
+| `shade_ambient` | f32 | 0.1 | Factor de luz ambiente |
+| `shade_diffuse` | f32 | 0.6 | Factor de luz difusa |
+| `shade_specular` | f32 | 0.3 | Factor de luz especular |
+| `shade_spec_power` | f32 | 16.0 | Exponente especular |
+| `shadow_enabled` | bool | true | Habilita sombras |
+| `shadow_steps` | int | 32 | Pasos del shadow ray |
+| `shadow_max_dist` | f32 | 5.0 | Distancia máxima del shadow ray |
+| `shadow_bias` | f32 | 0.01 | Bias para evitar acne de sombra |
+| `post_tonemap` | bool | false | Habilita tonemapping |
+| `post_gamma` | bool | false | Habilita corrección gamma |
+| `post_exposure` | f32 | 1.0 | Exposición |
+| `terrain_blend_strength` | f32 | 0.0 | Mezcla de terreno SDF (0=off, ~0.6 para terrenos). Reduce brillo metálico en superficies de terreno vía `(1 - metallic) * blend` |

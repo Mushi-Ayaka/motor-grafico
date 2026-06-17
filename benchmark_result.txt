@@ -1,0 +1,5 @@
+Escena: 1 nodos, 1 BVH, 1 materiales, 75 bytecode bytes
+Resolucion: 974 x 617
+GPU Vulkan Compute (200 frames):
+  Media: 3.213 ms (311.2 FPS)
+  Total: 642.673 ms

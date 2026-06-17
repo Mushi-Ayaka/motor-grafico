@@ -16,7 +16,8 @@ struct BvhNode {
     Aabb bounds;
     u32  left    = 0xFFFFFFFF;
     u32  right   = 0xFFFFFFFF;
-    u32  node_idx = 0xFFFFFFFF; // leaf: scene node index
+    u32  node_idx = 0xFFFFFFFF; // leaf: first scene node index
+    u32  node_count = 0;        // leaf: how many nodes in this leaf
     bool is_leaf = false;
 };
 
@@ -30,11 +31,10 @@ struct Bvh {
         clear();
         if (graph.nodes.empty()) return;
 
-        // Collect all enabled SDF leaf nodes
+        // Collect all enabled scene nodes (GROUP included for compound support)
         std::vector<u32> leaves;
         for (u32 i = 0; i < (u32)graph.nodes.size(); i++) {
             if (!graph.nodes[i].enabled) continue;
-            if (scene.nodes[i].type == NodeType::GROUP) continue;
             if (scene.nodes[i].type == NodeType::INSTANCE) continue;
             if (scene.nodes[i].is_compound_child) continue;
             leaves.push_back(i);
@@ -56,13 +56,13 @@ struct Bvh {
 
     u32 buildRecursive(SceneGraph& graph, u32* indices, u32 count, u32 depth) {
         BvhNode node;
-        node.is_leaf = (count <= 4 || depth >= 16);
+        node.is_leaf = (count <= 1 || depth >= 16);
 
         if (node.is_leaf) {
-            for (u32 i = 0; i < count; i++) {
+            for (u32 i = 0; i < count; i++)
                 node.bounds.expand(graph.nodes[indices[i]].world_aabb);
-            }
             node.node_idx = indices[0];
+            node.node_count = count;
             nodes.push_back(node);
             return (u32)nodes.size() - 1;
         }

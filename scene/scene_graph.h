@@ -196,9 +196,9 @@ struct SceneGraph {
             aabb.min = {-rad, -hh, -rad};
             aabb.max = { rad,  hh,  rad};
         } else {
-            // capsule, rounded_box, boolean ops: conservative 2-unit box
-            aabb.min = {-2, -2, -2};
-            aabb.max = { 2,  2,  2};
+            // custom, boolean ops: conservative large box for infinite terrain
+            aabb.min = {-50, -50, -50};
+            aabb.max = { 50,  50,  50};
         }
 
         // Apply local transform to AABB

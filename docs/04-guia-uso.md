@@ -51,16 +51,33 @@ Resultados actuales: **219 tests, 0 fallos**
 
 ### Controles
 
-| Tecla | Acción |
-|-------|--------|
-| F1 | Alternar mouse look (orbit) |
+| Tecla/Mouse | Acción |
+|-------------|--------|
+| F1 | Alternar ORBIT ↔ FREE_FLY mouse look |
 | F5 | Re-renderizar escena |
-| Mouse drag | Orbitar cámara alrededor del target |
-| + / - | Zoom in/out |
-| W/S/A/D | Moverse (free fly, cuando no está en orbit) |
+| Botón medio + drag | Orbitar cámara alrededor del target |
+| Rueda / + - | Zoom in/out |
+| W/S/A/D | Moverse (free fly) |
 | Q/E | Subir/bajar (free fly) |
 
-### Flujo de trabajo
+### Modalidad de escena
+
+El visor carga automáticamente en este orden:
+1. `.ont` + `.obs` (ontológico, desde `Lenguaje Hermetico/herm/build/`)
+2. `.rih` (RIH JSON, desde `ejemplos/`)
+
+Si no encuentra ninguno, muestra pantalla en negro.
+
+### Flujo de trabajo (ontológico)
+
+1. Compilar escena: `herm build.bat` produce `.ont` + `.obs`
+2. Visor carga `.ont` → `OntScene`, `.obs` → aplica cámara/luces/timeline
+3. `Renderer::render()` → `renderOntSceneMTSIMD()` (SIMD + multi-thread)
+4. Adaptive resolution: 0.25× durante movimiento, 1× tras 400ms idle
+5. `StretchDIBits` upscales al viewport
+6. FPS overlay: verde, muestra FPS/render ms/pump ms/scale
+
+### Flujo de trabajo (RIH)
 
 1. Visor carga `bodegon.rih` automáticamente al iniciar
 2. SceneGraph se inicializa desde la escena

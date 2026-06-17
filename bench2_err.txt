@@ -1,0 +1,30 @@
+[VK] Instance created OK
+[VK] Queue families: compute=2 graphics=0
+[VK] Logical device created OK
+[VK] init() complete — GPU ready
+[VK] SPIR-V loaded: 33600 bytes
+[VK] Compute pipeline ready
+Vulkan Validation Layer: vkQueueSubmit(): pSubmits[0].pSignalSemaphores[0] (VkSemaphore 0xc000000000c) is being signaled by VkQueue 0x2d05fc493a0, but it may still be in use by VkSwapchainKHR 0x40000000004.
+Most recently acquired image indices: [0], 1.
+(Brackets mark the last use of VkSemaphore 0xc000000000c in a presentation operation.)
+Swapchain image 0 was presented but was not re-acquired, so VkSemaphore 0xc000000000c may still be in use and cannot be safely reused with image index 1.
+Hint: See https://docs.vulkan.org/guide/latest/swapchain_semaphore_reuse.html for details on swapchain semaphore reuse. Examples of possible approaches:
+   a) Use a separate semaphore per swapchain image. Index these semaphores using the index of the acquired image.
+   b) Consider the VK_KHR_swapchain_maintenance1 extension. It allows using a VkFence with the presentation operation.
+The Vulkan spec states: Each binary semaphore element of the pSignalSemaphores member of any element of pSubmits must be unsignaled when the semaphore signal operation it defines is executed on the device (https://docs.vulkan.org/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit-pSignalSemaphores-00067)
+Vulkan Validation Layer: vkDestroyBuffer(): can't be called on VkBuffer 0x100000000010 that is currently in use by VkDescriptorSet 0x1d000000001d.
+The Vulkan spec states: All submitted commands that refer to buffer, either directly or via a VkBufferView, must have completed execution (https://docs.vulkan.org/spec/latest/chapters/resources.html#VUID-vkDestroyBuffer-buffer-00922)
+Vulkan Validation Layer: vkDestroyBuffer(): can't be called on VkBuffer 0x210000000021 that is currently in use by VkCommandBuffer 0x2d05fddf420.
+The Vulkan spec states: All submitted commands that refer to buffer, either directly or via a VkBufferView, must have completed execution (https://docs.vulkan.org/spec/latest/chapters/resources.html#VUID-vkDestroyBuffer-buffer-00922)
+Vulkan Validation Layer: vkDestroyPipeline(): can't be called on VkPipeline 0x200000000020 that is currently in use by VkCommandBuffer 0x2d05fddf420.
+The Vulkan spec states: All submitted commands that refer to pipeline must have completed execution (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-vkDestroyPipeline-pipeline-00765)
+Vulkan Validation Layer: vkDestroySemaphore(): can't be called on VkSemaphore 0xb000000000b that is currently in use by VkQueue 0x2d05fc493a0.
+The Vulkan spec states: All submitted batches that refer to semaphore must have completed execution (https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-vkDestroySemaphore-semaphore-05149)
+Vulkan Validation Layer: vkDestroySemaphore(): can't be called on VkSemaphore 0xc000000000c that is currently in use by VkQueue 0x2d05fc493a0.
+The Vulkan spec states: All submitted batches that refer to semaphore must have completed execution (https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-vkDestroySemaphore-semaphore-05149)
+Vulkan Validation Layer: vkDestroyFence(): can't be called on VkFence 0xd000000000d that is currently in use by VkQueue 0x2d05fc493a0.
+The Vulkan spec states: All queue submission commands that refer to fence must have completed execution (https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-vkDestroyFence-fence-01120)
+Vulkan Validation Layer: vkDestroySwapchainKHR(): can't be called on VkSwapchainKHR 0x40000000004 that is currently in use by VkQueue 0x2d05faaff80.
+The Vulkan spec states: All uses of presentable images acquired from swapchain must have completed execution (https://docs.vulkan.org/spec/latest/chapters/VK_KHR_surface/wsi.html#VUID-vkDestroySwapchainKHR-swapchain-01282)
+Vulkan Validation Layer: vkDestroyCommandPool(): (VkCommandBuffer 0x2d05fddf420) is in use.
+The Vulkan spec states: All VkCommandBuffer objects allocated from commandPool must not be in the pending state (https://docs.vulkan.org/spec/latest/chapters/cmdbuffers.html#VUID-vkDestroyCommandPool-commandPool-00041)

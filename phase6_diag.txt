@@ -1,0 +1,5 @@
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[DISPATCH] dispatch size: 974x617, output buffer size: 2403832

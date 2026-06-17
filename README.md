@@ -1,5 +1,7 @@
 # Motor Gráfico
 
+> **Vida del proyecto:** 4 de junio de 2026 (sesión única)
+
 Motor de renderizado 3D interactivo para escenas SDF (Signed Distance Fields) con arquitectura limpia en 5 capas. Carga escenas descritas en formato RIH (JSON), las renderiza por ray marching en CPU, y las visualiza en una ventana Win32 con controles de cámara en tiempo real.
 
 ## Arquitectura (5 capas)

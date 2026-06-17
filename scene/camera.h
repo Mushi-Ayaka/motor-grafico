@@ -26,10 +26,17 @@ struct CameraController {
     f32   orbit_elevation  = 0.5f;  // radians
 
     // Free fly
+    Vec3  fly_position     = {0, 2, 5};
+    Vec3  fly_velocity     = {0, 0, 0};
     f32   fly_speed        = 3.0f;
-    f32   sensitivity      = 0.002f;
+    f32   smooth_speed     = 6.0f;    // exponential smoothing factor
+    f32   sensitivity      = 0.001f;  // radians per pixel
     f32   yaw              = 0.0f;
     f32   pitch            = 0.0f;
+
+    // Smooth zoom
+    f32   target_distance  = 5.0f;
+    f32   zoom_smooth_speed = 8.0f;
 
     // Follow mode
     u32   follow_target    = 0xFFFFFFFF;
@@ -45,10 +52,11 @@ struct CameraController {
 
     void setOrbit(Vec3 target, f32 distance, f32 azimuth, f32 elevation) {
         mode = CameraMode::ORBIT;
-        orbit_target    = target;
-        orbit_distance  = distance;
-        orbit_azimuth   = azimuth;
-        orbit_elevation = elevation;
+        orbit_target     = target;
+        orbit_distance   = distance;
+        target_distance  = distance;
+        orbit_azimuth    = azimuth;
+        orbit_elevation  = elevation;
     }
 
     void setFreeFly(Vec3 pos, f32 yaw_rad, f32 pitch_rad) {
@@ -79,12 +87,7 @@ struct CameraController {
                     orbit_target.z - offset.z};
         }
         if (mode == CameraMode::FREE_FLY) {
-            f32 cy = std::cos(yaw);
-            f32 sy = std::sin(yaw);
-            f32 cp = std::cos(pitch);
-            f32 sp = std::sin(pitch);
-            // position stored externally; this is a helper
-            return {0, 0, 0};
+            return fly_position;
         }
         return {0, 2, 5};
     }
@@ -121,6 +124,7 @@ struct CameraController {
             Vec3 pos = getPosition();
             Vec3 fwd = getForward();
             orbit_distance = std::sqrt(pos.x*pos.x + pos.y*pos.y + pos.z*pos.z);
+            target_distance = orbit_distance;
             orbit_azimuth = std::atan2(pos.z, pos.x);
             orbit_elevation = std::asin(pos.y / orbit_distance);
         }
@@ -132,24 +136,63 @@ struct CameraController {
     // Zoom (change orbit distance or fly speed)
     void zoom(f32 delta) {
         if (mode == CameraMode::ORBIT) {
-            orbit_distance = std::fmax(0.1f, orbit_distance - delta);
+            target_distance = std::fmax(0.1f, target_distance - delta);
         } else {
             fly_speed = std::fmax(0.1f, fly_speed - delta * 0.5f);
         }
     }
 
+    // Per-frame smoothing update (call once per frame with real dt)
+    void updateSmoothing(f32 dt) {
+        if (mode == CameraMode::ORBIT) {
+            f32 factor = 1.0f - std::exp(-zoom_smooth_speed * dt);
+            orbit_distance += (target_distance - orbit_distance) * factor;
+        }
+    }
+
     // Update position from fly input
     void updateFly(f32 dt, bool forward, bool backward, bool left, bool right, bool up, bool down) {
-        if (mode != CameraMode::FREE_FLY) return;
+        if (mode != CameraMode::FREE_FLY) {
+            // Auto-switch to FREE_FLY on first WASD input
+            if (forward || backward || left || right || up || down) {
+                mode = CameraMode::FREE_FLY;
+                Vec3 pos = getPosition();
+                Vec3 tgt = getTarget();
+                Vec3 dir = {tgt.x - pos.x, tgt.y - pos.y, tgt.z - pos.z};
+                f32 l = std::sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+                if (l > 0) { dir.x /= l; dir.y /= l; dir.z /= l; }
+                yaw = std::atan2(dir.z, dir.x);
+                pitch = std::asin(dir.y);
+                fly_position = pos;
+                fly_velocity = {0, 0, 0};
+            } else {
+                return;
+            }
+        }
         Vec3 fwd = {std::cos(yaw) * std::cos(pitch),
                     std::sin(pitch),
                     std::sin(yaw) * std::cos(pitch)};
         Vec3 rgt = {std::cos(yaw + 3.14159265f/2), 0,
                     std::sin(yaw + 3.14159265f/2)};
-        f32 speed = fly_speed * dt;
-        (void)fwd; (void)rgt; (void)speed;
-        (void)forward; (void)backward; (void)left; (void)right; (void)up; (void)down;
-        // Position is managed externally via node transform
+        // Compute target velocity direction
+        Vec3 target_dir = {0, 0, 0};
+        if (forward)  target_dir = target_dir + fwd;
+        if (backward) target_dir = target_dir - fwd;
+        if (left)     target_dir = target_dir - rgt;
+        if (right)    target_dir = target_dir + rgt;
+        if (up)       target_dir.y += 1;
+        if (down)     target_dir.y -= 1;
+        f32 len = std::sqrt(target_dir.x*target_dir.x + target_dir.y*target_dir.y + target_dir.z*target_dir.z);
+        if (len > 0) { target_dir.x /= len; target_dir.y /= len; target_dir.z /= len; }
+        // Exponential smoothing towards target velocity
+        Vec3 target_vel = {target_dir.x * fly_speed, target_dir.y * fly_speed, target_dir.z * fly_speed};
+        f32 factor = 1.0f - std::exp(-smooth_speed * dt);
+        fly_velocity.x += (target_vel.x - fly_velocity.x) * factor;
+        fly_velocity.y += (target_vel.y - fly_velocity.y) * factor;
+        fly_velocity.z += (target_vel.z - fly_velocity.z) * factor;
+        fly_position.x += fly_velocity.x * dt;
+        fly_position.y += fly_velocity.y * dt;
+        fly_position.z += fly_velocity.z * dt;
     }
 
     // Mouse look for free fly
