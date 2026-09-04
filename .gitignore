@@ -20,3 +20,7 @@ ipch/
 *.rih
 *.tb
 *.png
+
+# Dependencies (large third-party libs)
+external/
+deps/

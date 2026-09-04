@@ -1,7 +1,12 @@
 #include "window_manager.h"
 #include "visor_app.h"
+#include "imgui.h"
+#include "imgui_impl_win32.h"
 #include <cstdio>
 #include <string>
+
+// Forward declaration (imgui_impl_win32.h keeps it in a #if 0 block)
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace mg {
 
@@ -342,6 +347,8 @@ LRESULT CALLBACK WindowManager::PropsProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
 
 LRESULT CALLBACK WindowManager::ViewportProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     WindowManager* wm = (WindowManager*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    if (ImGui::GetCurrentContext() && ImGui_ImplWin32_WndProcHandler(hwnd, msg, wp, lp))
+        return 0;
     switch (msg) {
         case WM_CREATE: {
             CREATESTRUCT* cs = (CREATESTRUCT*)lp;

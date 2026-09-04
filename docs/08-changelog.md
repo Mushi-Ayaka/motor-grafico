@@ -2,6 +2,314 @@
 
 > **Vida del proyecto:** 4 de junio → 17 de junio de 2026 (v0.15–v0.26)
 
+## 2026-09-03 — T-112: Tensor Inspector (M29)
+
+### Resumen
+Se crea el panel Tensor Inspector que muestra los componentes del tensor 1×8 del material seleccionado, con gráficos históricos y detección de anomalías.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| TensorInspector class | `visor/tensor_inspector.h/.cpp` | Tensor display, history plots (8 components), anomaly detection. |
+| VisorApp integration | `visor/visor_app.h/.cpp` | `tensor_inspector` miembro, draw en UI. |
+| Build script | `build.bat` | +tensor_inspector.cpp |
+
+### Funcionalidad
+- **Tensor display**: muestra XYZ, W, RGB, A del material seleccionado.
+- **Color preview**: swatch de color base.
+- **History plots**: gráfico de cada componente vs tiempo (60 frames).
+- **Anomaly detection**: flags para NaN y valores extremos (>100).
+- **Material info**: nombre del material asignado.
+
+### Notas
+- **Readback/Staging**: pendiente para v2 (requiere VkBuffer de readback GPU→CPU).
+- **Heatmap**: pendiente para v2 (requiere textura de visualización).
+- **Validación relacional a lo largo de W**: pendiente para v2.
+
+## 2026-09-03 — T-105: Gizmos overlay 2D (M13)
+
+### Resumen
+Se crea el panel Gizmos que muestra overlay 2D proyectado desde handles 3D para manipular nodos seleccionados.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| GizmosPanel class | `visor/gizmos_panel.h/.cpp` | Move/Rotate/Scale gizmos, worldToScreen, drag interaction. |
+| VisorApp integration | `visor/visor_app.h/.cpp` | `gizmos` miembro, draw en viewport, toolbar buttons. |
+| Build script | `build.bat` | +gizmos_panel.cpp |
+
+### Funcionalidad
+- **Move gizmo**: flechas RGB (X/Y/Z) con proyección 3D→2D.
+- **Rotate gizmo**: círculo amarillo.
+- **Scale gizmo**: cuadro naranja.
+- **Drag**: click en eje para arrastrar, snap opcional.
+- **Toolbar**: botones [Move]/[Rot]/[Scale] para cambiar modo.
+
+## 2026-09-03 — T-104: Inspector F/Q/B editable (M12)
+
+### Resumen
+Se crea el panel Inspector que muestra propiedades editables del nodo seleccionado con secciones F/Q/B.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| InspectorPanel class | `visor/inspector_panel.h/.cpp` | Secciones F/Q/B colapsables, dragfloat, color picker, sliders. |
+| VisorApp integration | `visor/visor_app.h/.cpp` | `inspector` miembro, draw en UI. |
+| Build script | `build.bat` | +inspector_panel.cpp |
+
+### Funcionalidad
+- **Física**: Translate/Rotate/Scale (DragFloat3), SDF params editables.
+- **Química**: Material name, Base Color (ColorEdit3), Metallic, Roughness, Emission (ColorEdit3).
+- **Biología**: Enabled, ID, Depth, Parent, Children count.
+- **Sync**: cambios en Inspector actualizan SceneNode + Node.
+
+## 2026-09-03 — T-103: Árbol Ontológico F/Q/B (M11)
+
+### Resumen
+Se crea el panel Ontology Tree que muestra la jerarquía de nodos de la escena con facetas F/Q/B, selección y enable/disable.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| OntologyPanel class | `visor/ontology_panel.h/.cpp` | Tree recursivo, checkboxes F/Q/B, selección, enable/disable. |
+| VisorApp integration | `visor/visor_app.h/.cpp` | `ontology` miembro, draw en UI. |
+| Build script | `build.bat` | +ontology_panel.cpp |
+
+### Funcionalidad
+- **Tree jerárquico**: muestra nodos SDF/GROUP/INSTANCE con indentación.
+- **Facet F**: muestra transform (T/R/S).
+- **Facet Q**: muestra tipo SDF y material.
+- **Facet B**: muestra enabled/parent.
+- **Selección**: click para seleccionar nodo.
+- **Enable/disable**: checkbox para activar/desactivar nodo.
+
+## 2026-09-03 — T-116: Profiler Panel (M27)
+
+### Resumen
+Se crea el panel Profiler que muestra métricas de render en tiempo real: FPS, ms/frame, pump time, viewport, scene stats y gráfico de frame time.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| ProfilerPanel class | `visor/profiler_panel.h/.cpp` | Stats struct, history buffer (120 frames), draw con PlotLines. |
+| VisorApp integration | `visor/visor_app.h/.cpp` | `profiler` miembro, actualización cada frame, draw en UI. |
+| Build script | `build.bat` | +profiler_panel.cpp |
+
+### Métricas mostradas
+- **FPS**: frames por segundo
+- **Frame time**: ms/frame con gráfico histórico (120 frames)
+- **Pump time**: ms del message pump
+- **Render scale**: factor de escala actual
+- **Viewport**: resolución activa
+- **Mode**: GPU/CPU
+- **Scene**: nodos, materiales, bytecode bytes
+
+## 2026-09-03 — T-102: Viewport ImGui::Image (M4 partial)
+
+### Resumen
+El panel Viewport ahora muestra la imagen renderizada por el compute shader usando `ImGui::Image`.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| VkImage offscreen | `render/vulkan_core.h/.cpp` | `viewport_image`, `viewport_image_view`, `viewport_sampler`, descriptor pool/layout/set propio. |
+| copyOutputToViewport | `render/vulkan_core.cpp` | Copia `output_buffer` → `viewport_image` con barriers (UNDEFINED→TRANSFER_DST→SHADER_READ_ONLY). |
+| drawFrame integration | `render/vulkan_core.cpp` | Llama `copyOutputToViewport` después de cada dispatch. |
+| Viewport panel | `visor/visor_app.cpp` | Muestra `ImGui::Image` con aspect ratio correcto. |
+| Cleanup | `visor/visor_app.cpp` | `destroyViewportImage()` antes de `cleanup()`. |
+
+### Notas
+- **Resolución dinámica**: se recrea el viewport image cuando cambia el tamaño.
+- **Descriptor set propio**: pool/layout dedicado (no comparte con ImGui).
+- **Multi-viewport**: pendiente (requiere texturas adicionales por viewport).
+
+## 2026-09-03 — T-101: MenuBar + Toolbar (M1/M2/M3)
+
+### Resumen
+Se extiende el shell del editor con MenuBar funcional (File/Edit/View/Help) y Toolbar con controles de modo, cámara, render scale y FPS.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| MenuBar funcional | `visor/visor_app.cpp` | File: New/Open/Save/Save As/Exit. Edit: Undo/Redo. View: toggle Console/Editor. Help: About placeholder. |
+| Toolbar | `visor/visor_app.cpp` | Mode toggle (GPU/CPU), Camera mode, Render scale slider, FPS display. |
+| Windows includes | `visor/visor_app.cpp` | +windows.h, +commdlg.h para diálogos Open/Save. |
+
+### Notas
+- **File > Open/Save**: usa `GetOpenFileNameA`/`GetSaveFileNameA` (comdlg32.lib).
+- **Toolbar**: controles básicos para v1. P/I/K y gizmos SDF quedan para v2.
+- **Multi-viewport**: pendiente (requiere texturas offscreen adicionales).
+
+## 2026-09-03 — T-115: Undo/Redo por diffs de AST
+
+## 2026-09-03 — T-115: Undo/Redo por diffs de AST
+
+### Resumen
+Se implementa Undo/Redo (Ctrl+Z/Ctrl+Y) que guarda snapshots del source code después de cada compile exitoso. El sistema guarda hasta 100 estados y permite navegar el historial.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| UndoRedo class | `visor/undo_redo.h/.cpp` | `UndoRedo` class: `saveState()`, `undo()`, `redo()`, `canUndo()`, `canRedo()`. Max 100 states. |
+| Wire en editor | `visor/visor_app.cpp/.h` | `UndoRedo undo_redo` miembro de `VisorApp`. Ctrl+Z/Y handlers en loop principal. `saveState()` después de compile exitoso. |
+| HermEditor | `visor/herm_editor.h` | `reloadFromSource()` setter para forzar recarga del text buffer. |
+| Build | `build.bat` | +undo_redo.cpp. |
+
+### Notas
+- **Snapshot-based**: guarda source code completo (no AST diffs). Simple y robusto para v1.
+- **Trigger**: se guarda estado después de cada compile exitoso (Ctrl+S).
+- **Limitaciones**: no guarda estado entre compiles (solo en compile); no tiene granularidad a nivel de AST (v2 podría usar diffs).
+
+## 2026-09-03 — T-113: Scene Validation + Console/Log panel
+
+## 2026-09-03 — T-113: Scene Validation + Console/Log panel
+
+### Resumen
+Se extiende el Anomaly Gate con validaciones adicionales (transform non-finite, camera fov, light intensity, material name duplicates, scale=0) y se crea el panel Console/Log (M26) para mostrar anomalías y logs.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| Console panel | `visor/console_panel.h/.cpp` | `ConsolePanel` class: log entries con level (INFO/WARN/ERROR/SUCCESS), auto-scroll, filter by level, max 500 entries. |
+| Anomaly Gate extended | `visor/anomaly_gate.cpp` | +validateAST: transform non-finite, scale=0, camera fov invalid, light intensity non-finite/<0, material name duplicates. |
+| Wire en editor | `visor/visor_app.cpp/.h` | `ConsolePanel console` miembro de `VisorApp`. Init logs + draw panel. |
+| Build | `build.bat` | +console_panel.cpp. |
+
+## 2026-09-03 — T-110: Scheduler + Input Bus + Anomaly Gate
+
+## 2026-09-03 — T-110: Scheduler + Input Bus + Anomaly Gate
+
+### Resumen
+Se implementa la infraestructura de live-compile asíncrono: Scheduler con debounce (~30ms), Input Bus unificado, y Anomaly Gate para validación estática de AST/bytecode antes de publicar.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| Scheduler | `visor/scheduler.h/.cpp` | `Scheduler` class: debounce timer, compile/apply callbacks, `markDirty()`/`update()`/`forceCompile()`. Estados: IDLE→DIRTY→COMPILING→VALIDATING→PUBLISHED/STATE_ERROR. |
+| Input Bus | `visor/input_bus.h/.cpp` | `InputBus` class: input unificado (teclado/ratón), `InputState` con keys[256], mouse, scroll, flags ImGui. `beginFrame()`/`onKey()`/`onMouseMove()`. |
+| Anomaly Gate | `visor/anomaly_gate.h/.cpp` | `AnomalyGate` class: `validateAST()` (material ID out-of-range, params NaN, smooth k<0, repeat spacing<=0, empty SDF, def duplicados, empty scene), `validateBytecode()` (ONT_CONST truncado/no-finito), `summary()`. |
+| Wire en editor | `visor/visor_app.cpp/.h` | Scheduler init con compile/apply callbacks. `scheduler.update(now)` en loop principal. Properties panel muestra scheduler state + anomalies. |
+| Build | `build.bat` | +scheduler.cpp, +input_bus.cpp, +anomaly_gate.cpp. |
+
+### Notas
+- **Scheduler v1**: recompile en main thread (sin threading real). Debounce previene compilar en cada keystroke. `forceCompile()` para Ctrl+S inmediato.
+- **Anomaly Gate**: validación estática del AST (parámetros no-finitos, material ID fuera de rango, etc.) y bytecode (ONT_CONST truncado). Si hay errores, mantiene último frame bueno.
+- **Input Bus**: wrapper sobre ImGui input state. v1 es stub; v2 integrará ray-SDF 3D picking.
+- **Nota Windows**: `ERROR` es macro de Windows (`winerror.h:0`). Se usa `STATE_ERROR`/`SEV_ERROR` para evitar conflictos.
+
+## 2026-09-02 — T-111: Code Editor `.herm` (line numbers, file I/O, error markers)
+
+### Resumen
+Se implementa el editor de código `.herm` mejorado con line numbers, file I/O (New/Open/Save/Save As), error markers inline, syntax highlighting básico (keywords coloreados), y atajos de teclado (Ctrl+S para compile). El editor reemplaza al `InputTextMultiline` básico.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| HermEditor widget | `visor/herm_editor.h` / `visor/herm_editor.cpp` | Editor completo con: line numbers gutter, toolbar (New/Open/Save/Save As/Compile), error markers, syntax highlighting por keywords (scene/sdf/material/def/instance/light + tipos SDF + operadores + propiedades), Ctrl+S para compile. Buffer de 64KB. |
+| Wire en editor | `visor/visor_app.cpp` + `visor/visor_app.h` | `HermEditor herm_editor` como miembro de `VisorApp`. Compile callback estático que captura `this` y despacha a GPU/CPU path. Reemplaza al `InputTextMultiline` + botón manual. |
+| Build | `build.bat` | Añade `herm_editor.cpp` + `comdlg32.lib` + `shell32.lib` (para diálogos Win32 Open/Save). |
+
+### Notas
+- **Syntax highlighting**: keywords resueltos por `keywordColor()` con colores estilo VS Code (azul=scene/camera, teal=sdf/tipos, purple=material/def/instance, amarillo=operadores, celeste=propiedades).
+- **File I/O**: usa `GetOpenFileNameA`/`GetSaveFileNameA` de Win32 (comdlg32.lib). Filtra `*.herm`.
+- **Error markers**: muestra errores bajo el editor con línea + mensaje.
+- **Ctrl+S**: compila inline (misma lógica que el botón Compile).
+- **Buffer**: 64KB (`text_buf[65536]`). Para archivos más grandes, se necesitaallocación dinámica (v2).
+
+## 2026-09-02 — T-F1.2b: puente `herm::Rih → mg::OntScene` (GPU/Vulkan)
+
+### Resumen
+Se integra `ImGui_ImplVulkan` en el contexto de render (`vk_ctx`) como overlay sobre el swapchain, con un dockspace y paneles base en el editor. Build OK (pendiente verificación visual en GPU).
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| ImGui fijado a tag `v1.91.9-docking` | `external/imgui` + `setup_deps.bat` | `docking` HEAD usa *dynamic rendering* (rompe la API clásica: `RenderPass`→`PipelineInfoMain`, `CreateFontsTexture` eliminado) y el release `v1.91.9` no trae docking. `v1.91.9-docking` tiene API clásica + docking. |
+| `initImGui` / `shutdownImGui` / `createImguiFramebuffers` | `render/vulkan_core.h/.cpp` | Init con `ImGui_ImplVulkan_InitInfo` (RenderPass del overlay, `MSAASamples`, `MinImageCount`/`ImageCount`); overlay en `drawFrame` tras el blit compute→swapchain. |
+| Dockspace + paneles | `visor/visor_app.cpp/.h` | Init/shutdown ImGui; `drawEditorUI()` con menú (File/Edit/View/Help), dockspace y paneles Viewport/Properties/Hello. Llamado en el loop. |
+| Reenvío de input | `visor/window_manager.cpp` | Forward-decl de `ImGui_ImplWin32_WndProcHandler` (está en `#if 0` en el header) y forwarding de teclado/ratón a ImGui. |
+| Build ImGui Vulkan | `build.bat` | Compila `imgui_impl_vulkan.cpp` con `/DVK_NO_PROTOTYPES` (resuelve `vk*` vía `volk.c`, sin `vulkan-1.lib`) + `/MD`; incluye `VULKAN_SDK\Include`. |
+
+### Notas
+- `ImGui_ImplVulkan_CreateFontsTexture()` va **sin argumento** (el backend crea su propio command buffer); cleanup con `ImGui_ImplVulkan_DestroyFontsTexture()` (no `DestroyFontUploadObjects`).
+- **Hallazgo T-F1.2**: el renderer Vulkan del editor consume `OntScene` (`.ont`), NO `Rih`. `Rih` solo lo usa el render por CPU (`core/renderer.cpp::render`). `libherm` emite RIH (`writeRihJson`/`writeRihBinary`) o `herm::Rih`. El live-preview exige un puente `Rih → OntScene` (o que libherm emita `.ont`). Pendiente decidir en T-F1.2.
+- **Hallazgo `lenguaje-hermetico` (bloquea T-F1.1/T-F1.2)**: el snapshot vendored es **incompleto**. `contrato/herm.h` declara `compileFromString`/`compile`/`loadRih` pero **no estaban implementados** (stubs). Se implementó el orquestador en `herm_compile.cpp` (Lexer→Parser→Resolver→writeRihJson/Binary) y se reconstruyó `libherm.lib` con `/MD`. PERO el parser **no acepta el dialecto de los `.herm` de ejemplo** (`deps/lenguaje-hermetico/ejemplos/*.herm` fallan con `base_color` / `directional` no reconocidos): el parser del snapshot está desactualizado respecto de su propio corpus. Además `f64` no está definido en headers de herm (depende de `os/os.h`). Se vendorizó la fuente real (repo hermano `lenguaje-hermetico`) y se añadió retrocompat al parser (material `base_color`→tensor rgb; light `type: directional/point`). **El compilador hermético FUNCIONA**: `compileFromString` (Lexer→Parser→Resolver→writeRihJson) compila y escribe `.rih` para TODOS los ejemplos (`bodegon`, `luces`, `sdf_expr`, `def_let`, `compound`). El supuesto "bucle infinito del Resolver" era un diagnóstico erróneo: el cuelgue real estaba en `mg::loadRih` (`core/rih_reader.cpp`), no en el compilador. `skipValue()` (rih_reader.cpp:54-62) tiene un bug: para objetos `{...}` hace `while(peek()!='}'){ skipValue(); ... }` **sin consumir los tokens `clave:`**, así que al toparse con `:` cae en `readNumber()` (línea 61) que no consume nada → no avanza → **bucle infinito**. Se dispara al encontrar una clave-objeto no reconocida (p.ej. `"time": {...}` que herm emite en `scene`, línea 153 `else jr.skipValue();`). Cargar el `.rih` de herm con `mg::loadRih` es además incorrecto por diseño: mg usa esquema PBR (`base_color`/`roughness`/…) y herm emite esquema `tensor` 1×8. El puente real `herm::Rih → mg::Rih/OntScene` es la tarea T-F1.2.
+
+## 2026-09-02 — T-F1.2b: puente `herm::Rih → mg::OntScene` (GPU/Vulkan)
+
+### Resumen
+Se implementa el puente `herm::Rih` → `mg::OntScene` para habilitar el live-compile en el renderer GPU/Vulkan. Incluye compilador bytecode SdfNode→OntOpcode (stack VM), constructor BVH (single leaf), conversor material tensor→OntMaterial, y ensamblaje de OntScene binario en memoria. El editor ahora compila directamente a OntScene cuando `renderer.use_vulkan=true`.
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| Compilador bytecode | `core/herm_bridge.cpp` | `BytecodeBuilder` + `compileSdfTree()`: convierte árbol SdfNode (herm) a bytecode OntOpcode (stack VM). Soporta primitivas (sphere, box, capsule, torus, cylinder, plane, cone, rounded_box, octahedron, tesseract, sphere4d) y operadores (union, subtract, intersect, smooth_*, repeat, twist, elongate, displace). Expresiones animadas → constante 0 (v1). |
+| Constructor BVH | `core/herm_bridge.cpp` | `buildBVH()`: genera OntBvhNode root leaf conteniendo todos los graph nodes. AABB calculado desde transform de cada nodo. |
+| Conversor material | `core/herm_bridge.cpp` | `convertToOntMaterial()`: tensor[4..6]→base_color, tensor[7]→opacity, roughness/metallic/emission por defecto. |
+| Ensamblador OntScene | `core/herm_bridge.cpp` | `convertHermToOntScene()`: ensambla OntHeader + BVH + GraphNodes + Bytecode + Materials en blob binario contiguo. Asigna pointers de OntScene. |
+| API puente | `core/herm_bridge.h` | `convertHermToOntScene()` + `compileHermToOntScene()` declarados. |
+| Editor live-compile GPU | `visor/visor_app.cpp` | Botón Compile: si `renderer.use_vulkan`, compila a OntScene → `renderer.ont_scene` + `ont_mode=true`; si no, fallback a mg::Scene (CPU). |
+| Test OntScene | `tools/test_ont_bridge.cpp` | Verifica compilación +OntScene para cada ejemplo: valida magic, node_count, bytecode_size, material, graph_node. |
+| Build | `build.bat` | Añade compilación de `test_ont_bridge.exe`. |
+
+### Notas
+- **OntScene binario**: formato `.ont` embebido en `_data` vector: `OntHeader | OntBvhNode[] | OntGraphNode[] | bytecode[] | OntMaterial[]`. Los pointers (`header`, `bvh_nodes`, `graph_nodes`, `bytecode`, `materials`) se asignan directamente sobre `_data.data()`.
+- **BVH v1 simplificado**: un solo root leaf conteniendo todos los nodos (como `loadDefault`). BVH real (SAH split) queda para v2.
+- **Limitaciones conocidas**: expresiones animadas → constante 0; `repeat`/`twist`/`elongate`/`displace` ≈ passthrough (sin modificación real del campo); smooth_union usa promediado (no blend suavizado con k). Estas limitaciones son aceptables para v1 (live-preview básico).
+
+## 2026-08-29 (tarde) — T-F1.2: puente `herm::Rih → mg::Scene` + live-compile en editor
+
+### Resumen
+Se implementa el **puente** que faltaba para T-F1.2: `herm::Rih` (tensor 1×8) →
+`mg::Scene` (esquema PBR que consume el renderer). Se cablea en el editor (visor)
+un panel "Editor .herm" con `InputTextMultiline` + botón **Compile** que hace
+live-compile del buffer y reconstruye la escena (vía `scene_mgr.rebuildScene`).
+
+### Cambios
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| Puente `herm::Rih → mg::Scene` | `core/herm_bridge.h` / `core/herm_bridge.cpp` | `convertHermToScene` + `compileHermToScene`. Mapea tensor[4..6]→base_color, tensor[7]→opacity; `SdfType` enum→string; `child_a/child_b` remapeados (árbol SDF→nodos compound como en `loadRih`); `k` de smooth_*→params[0]. |
+| Helper en memoria | `deps/lenguaje-hermetico/herm/herm_compile.cpp` | `herm::compileToRih(src, Rih&, errOut)` (compila sin escribir a disco; `HermResult` no exponía el `Rih`). |
+| Editor live-compile | `visor/visor_app.cpp` + `visor/visor_app.h` | Panel "Editor .herm" (texto + Compile). Al compilar: `compileHermToScene` → `renderer.scene`, `scene_mgr.rebuildScene`, cámara desde la escena, `ont_mode=false` (preview CPU). Estado en Properties. |
+| Build | `build.bat` | Compila `core/herm_bridge.cpp`; link `build/libherm.lib`; includes de `deps/lenguaje-hermetico/{contrato,herm}`. |
+| Test | `tools/test_bridge.cpp` | Compila cada ejemplo y convierte a `mg::Scene` (sin `mg::loadRih`, sin disco). Verificado: bodegon(11n/3m), luces(2n/2m/3L), sdf_expr(2n/2m), def_let(2n/2m/1L) — sin cuelgue. |
+
+### Notas
+- **Esquema**: herm emite tensor 1×8; mg usa PBR. El puente es explícito (NO passthrough JSON). Ver `deps/lenguaje-hermetico/docs/04-guia-uso.md` §16.
+- **No se usa `mg::loadRih`**: cargar el `.rih` de herm con el loader PBR dispara el bug de `skipValue` (bucle infinito) y no coincide el esquema. El puente evita ese loader por completo.
+- **Limitación conocida**: expresiones animadas en `tensor`/params caen a constante 0 en la conversión (mg::Material no tiene campos expr). `roughness`/`metallic`/`emission` por defecto. Instancias con `def_id` resuelven vía tabla id→id (best-effort). Preview es el path CPU (`renderFrame`); el path Vulkan usa `OntScene`, pendiente de un puente `→ OntScene` (siguiente sub-paso).
+
+## 2026-08-28 — v0.27 — Bootstrap del Editor (deps, librería de live-compile, roadmap UI/UX)
+
+### Resumen
+
+Arranque del editor: la IDE del compilador hermético tensor/SDF (no "motor tipo Unity"
+literal). Se vendorizan dependencias, se construye `libherm` (compilador de
+`lenguaje-hermetico` como librería linkable para live-compile) y se documenta el diseño
+UI/UX con una hoja de ruta de tareas ordenada y con dependencias.
+
+### Cambios
+
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| Vendor ImGui (rama `docking`) | `external/imgui` + `setup_deps.bat` | UI inmediata; se clona con `--branch docking`. Base del shell (T-F6→T-101). |
+| `build_libherm.bat` (nuevo) | raíz | Compila `deps/lenguaje-hermetico/herm/*.cpp` + `contrato/*.h` en `build/libherm.lib` (excluye `herm_render.cpp` y `main.cpp`). API: `herm::compileFromString` + `herm::loadRih`. |
+| `setup_deps.bat` idempotente | raíz | Clona asmjit, volk, VMA, imgui, lenguaje-hermetico, MLIR-CampoTensorial. |
+| `build.bat` usa `VULKAN_SDK` | raíz | Incluye solo `external/` + `deps/`; no inyecta headers en el SDK del usuario. |
+| Brief UI/UX | `docs/16-ui-ux-editor-brief.md` | Contexto, layout, módulos, capacidades, enfoque técnico (base del diseño). |
+| Diseño UI/UX (agente) | `docs/17a/17b/17c-ui-ux-editor-*.md` | Conceptual (reframe a IDE hermética), catálogo ~36 módulos, ingeniería/paths. |
+| Roadmap de tareas | `docs/18-roadmap-tareas.md` | Tareas ordenadas con dependencias y condicionales (Fase 0 → post-v2). |
+
+### Notas de verificación
+
+- `lenguaje-hermetico` expone RIH en `contrato/rih.h`: `Material::tensor[8]` = ABI 1×8
+  `[x,y,z,w,r,g,b,a]`; binario `.rib` (MAGIC `RIHH`). No había que inventar el ABI (T-D3 retirada).
+- El motor **ya consume RIH en memoria** (`core/rih_reader.cpp`, `core/sdf_eval.cpp`), por lo
+  que el live-preview usará RIH directo (sin writer `.ont`). `libherm` solo debe emitir `herm::Rih`.
+- `herm_render.cpp` emite `.png` (CPU); se excluyó de `libherm` porque tira de `stb_image_write`.
+
+---
+
 ## 2026-06-17 — v0.26 — Pipeline Scene-Especializado Funcional + Fix de Dimensiones
 
 ### Resumen

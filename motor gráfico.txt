@@ -1,0 +1,121 @@
+---
+
+Origen
+
+1. El germen: SAAC y el problema de la consistencia
+
+El proyecto nació con el nombre SAAC (Sistema Agéntico de Animación Coherente). El objetivo era generar películas de animación 2D de larga duración con una consistencia temporal absoluta, usando hardware de consumo.
+
+Para lograrlo, se planteó una arquitectura de tres patas:
+
+· IA con Talento: un LLM orquestador que traduce prompts a intenciones.
+· Base de Conocimiento: un grafo con estilos, rigs y reglas.
+· Lienzo/Renderizado: un sistema que materializa esas intenciones en píxeles.
+
+El problema fundacional era que el "lienzo" no tenía un lenguaje propio. Los primeros intentos (MAPL, GSL, .pict) generaban millones de líneas para describir una sola imagen, o no tenían la expresividad necesaria.
+
+2. El descubrimiento: no es un lienzo, es un compilador de tensores
+
+Al intentar describir imágenes matemáticamente, se descubrió que el mecanismo no era "pintar", sino compilar descriptores de tensores espaciales. Cualquier imagen, vídeo o volumen puede entenderse como un tensor n-dimensional que se particiona en bloques y se describe mediante funciones matemáticas o tablas compactas.
+
+Esto llevó a construir un pipeline de compilación multi-nivel:
+
+· GTE (alto nivel): lenguaje declarativo de slots y regiones.
+· PTR (medio): partición en regiones con reglas condicionales.
+· CTP (IR canónico): representación intermedia de spans 1×8.
+· TB (bajo nivel): compresión lossless en bloques 8×8 con PAL (paletas).
+
+El compilador logró un 56% de ahorro promedio y un residual RAW del 1-6%, con tiempos de microsegundos por bloque en C++.
+
+3. El salto: del compilador al Lenguaje Hermético
+
+El compilador era eficaz pero limitado: no podía expresar mundos 3D, iluminación, materiales, física ni animación compleja sin que el código explotara. Se necesitaba un paradigma nuevo.
+
+Se abandonó la idea de "describir píxeles" y se pasó a describir las leyes del universo. Nació el Lenguaje Hermético: un lenguaje declarativo que describe escenas 3D/4D mediante SDFs (Signed Distance Fields) y una ontología de entidades.
+
+---
+
+Paradigma
+
+1. El Espacio-Tiempo como Tensor Hermético
+
+El mundo se modela como un campo tensorial continuo en 4 dimensiones:
+
+```
+XYZWRGBA
+```
+
+Cada punto tiene:
+
+· X, Y, Z: posición espacial.
+· W: tiempo (como cuarta dimensión geométrica, no como reloj).
+· R, G, B, A: color y opacidad.
+
+No hay mallas, ni texturas, ni sonidos binarios, ni modelos 3D con vértices. Todo se describe mediante funciones matemáticas.
+
+2. El Vacío Primordial y la Creación
+
+El universo empieza en un vacío absoluto: toda la matriz está en cero. Crear es perturbar ese vacío.
+
+Los tres operadores fundamentales son:
+
+· P (Perturbación): inyecta presencia en el vacío (crea entidades).
+· I (Influencia): modifica entidades existentes (cambia color, material, forma).
+· K (Aniquilación): elimina presencia (multiplica por cero).
+
+3. La Pirámide Ontológica (F/Q/B)
+
+El conocimiento del mundo se organiza en tres capas:
+
+· Física: forma, ocupación, transformaciones, movimiento.
+· Química: material, color, propiedades ópticas.
+· Biología: jerarquías, herencia, reglas de ensamblaje.
+
+Las entidades heredan propiedades de su nivel superior. Un "árbol" no es un objeto predefinido; es una consecuencia de ser un sólido orgánico con reglas físicas de crecimiento, química de celulosa y biología de ramificación.
+
+4. Tiempo como Geometría (Universo de Bloque)
+
+No hay simulación paso a paso. El tiempo (W) es una dimensión más. Un objeto en movimiento es una escultura estática en el hipervolumen 4D. Ver un fotograma es hacer un corte transversal en W.
+
+Esto se alinea con la teoría física del tiempo relacional (Page-Wootters): el tiempo emerge de las correlaciones internas, no de un reloj externo.
+
+5. SDFs y Ray Marching
+
+La geometría se describe mediante campos de distancia firmados:
+
+· Φ(p) < 0 → dentro del objeto.
+· Φ(p) = 0 → en la superficie.
+· Φ(p) > 0 → fuera.
+
+El renderizado se hace mediante ray marching: cada píxel lanza un rayo, avanza según la distancia al objeto más cercano, y al impactar calcula iluminación, sombras y materiales.
+
+6. Hermetismo y Determinismo
+
+El sistema es hermético: todo lo necesario para existir está dentro del sistema. No hay dependencias externas, ni texturas, ni ruido estadístico. Todo es analítico y determinista.
+
+Esto garantiza:
+
+· Reproducibilidad bit a bit: el mismo mundo genera el mismo render.
+· Seguridad natural: no hay variables globales que hackear; modificar un valor viola las leyes del universo.
+
+7. Materiales PBR sin Texturas
+
+Los materiales se definen por propiedades físicas (color base, rugosidad, metalizado, emisión, transparencia, índice de refracción). Las texturas no se almacenan: se generan proceduralmente mediante funciones analíticas.
+
+8. Compilación a Bytecode
+
+El AST del lenguaje declarativo se compila a una representación binaria lineal antes de tocar la GPU. No se interpretan cadenas de texto en tiempo real. Esto permite 60 FPS estables con un pico de memoria de 130 MB.
+
+---
+
+Estado Actual y Futuro
+
+· Prototipo funcional: renderiza geometría correcta con SDFs, a 60 FPS estables, en C++ con Vulkan.
+· Pipeline completo: .herm → RIH → TB → PNG (offline) y .herm → RIH → GPU (tiempo real).
+· Próximos pasos: UI/UX, motor de físicas relacional, lenguaje científico de scripting, red distribuida y exportación multiplataforma.
+
+---
+
+En una frase
+
+Es un compilador de universos declarativos y herméticos, donde la realidad se describe como tensores SDF, el tiempo es geometría, y la imagen emerge de resolver matemáticamente las leyes del mundo.

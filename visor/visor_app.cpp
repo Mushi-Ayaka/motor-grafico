@@ -4,7 +4,13 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <windows.h>
+#include <commdlg.h>
 #include "render/vulkan_core.h"
+#include "imgui.h"
+#include "imgui_impl_win32.h"
+#include "imgui_impl_vulkan.h"
+#include "core/herm_bridge.h"
 
 static std::ofstream g_diag;
 static void diag(const char* msg) {
@@ -51,6 +57,19 @@ bool VisorApp::init(HINSTANCE hInst, const wchar_t* initial_scene) {
         return false;
     }
     diag("[PHASE6] initSwapchain OK");
+
+    // --- Init ImGui (editor UI) over the viewport swapchain (T-F6) ---
+    if (renderer.use_vulkan) {
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        if (!vk_ctx.initImGui(win.hwnd_viewport)) {
+            diag("[IMGUI] init FAILED (continuando sin UI)");
+        } else {
+            diag("[IMGUI] init OK");
+        }
+    }
     {
         char buf[128];
         sprintf_s(buf, "[DIM] workspace active w=%d h=%d, render_scale=%.2f",
@@ -137,6 +156,87 @@ bool VisorApp::init(HINSTANCE hInst, const wchar_t* initial_scene) {
 
     updateTitle();
     
+    // Editor .herm (T-111): inicializa con fuente por defecto
+    herm_editor.initDefault();
+    editor_source = herm_editor.source;
+    editor_status = "Listo. Edita y pulsa Compile (Ctrl+S).";
+
+    // T-115: Undo/Redo init
+    undo_redo.saveState(editor_source);
+
+    // T-113: Console panel init
+    console.addLog(LogEntry::Level::INFO, "Motor Grafico initialized");
+    console.addLog(LogEntry::Level::INFO, "Scheduler: debounce=%ums", scheduler.debounce_ms);
+
+    // T-110: Scheduler — compile async con debounce
+    scheduler.init(
+        [this](const std::string& src) -> CompileResult {
+            CompileResult r;
+            std::string err;
+            if (renderer.use_vulkan) {
+                mg::OntScene ont;
+                if (mg::compileHermToOntScene(src.empty() ? editor_source : src, ont, &err)) {
+                    r.ok = true;
+                    r.nodes = ont.header->node_count;
+                    r.materials = ont.header->material_count;
+                    r.bytecode_bytes = ont.header->bytecode_size;
+                } else {
+                    r.ok = false;
+                    r.error = err;
+                }
+            } else {
+                mg::Scene sc;
+                if (mg::compileHermToScene(src.empty() ? editor_source : src, sc, &err)) {
+                    r.ok = true;
+                    r.nodes = (uint32_t)sc.nodes.size();
+                    r.materials = (uint32_t)sc.materials.size();
+                    r.bytecode_bytes = 0;
+                } else {
+                    r.ok = false;
+                    r.error = err;
+                }
+            }
+            return r;
+        },
+        [this](const CompileResult& result) {
+            if (!result.ok) {
+                editor_status = std::string("[FAIL] ") + result.error;
+                return;
+            }
+            // Aplicar al renderer
+            std::string err;
+            if (renderer.use_vulkan) {
+                mg::OntScene ont;
+                if (mg::compileHermToOntScene(editor_source, ont, &err)) {
+                    renderer.ont_scene = ont;
+                    renderer.ont_mode = true;
+                    editor_has_scene = true;
+                    editor_status = "[ok] ont compiled";
+                }
+            } else {
+                mg::Scene sc;
+                if (mg::compileHermToScene(editor_source, sc, &err)) {
+                    renderer.scene = sc;
+                    if (renderer.scene.lights.empty()) {
+                        Light def;
+                        def.name = "default";
+                        def.type = LightType::DIRECTIONAL;
+                        def.direction = {0.3f, 0.8f, 0.5f};
+                        renderer.scene.lights.push_back(def);
+                    }
+                    scene_mgr.rebuildScene(renderer);
+                    cam_ctrl.setOrbit(renderer.scene.camera.target, 5.0f, 0, 0.5f);
+                    cam_ctrl.applyTo(renderer.scene.camera);
+                    renderer.ont_mode = false;
+                    editor_has_scene = true;
+                    editor_status = "[ok] scene compiled";
+                }
+            }
+            dirty = true;
+            title_dirty = true;
+        }
+    );
+
     renderer.time = 0.0f;
     dirty = true;
     // End of init
@@ -266,6 +366,9 @@ void VisorApp::run() {
             camera_moving = false;
         }
 
+        // T-110: Scheduler — procesar debounce + compile async
+        scheduler.update(now);
+
         // First render always happens immediately
         if (first_render) {
             dirty = true;
@@ -281,6 +384,38 @@ void VisorApp::run() {
             }
         } else {
             toggle_held = false;
+        }
+
+        // T-115: Ctrl+Z = Undo, Ctrl+Y = Redo
+        bool ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+        if (ctrl) {
+            if (GetAsyncKeyState('Z') & 0x8000) {
+                if (!undo_redo_held) {
+                    std::string src;
+                    if (undo_redo.undo(src)) {
+                        editor_source = src;
+                        herm_editor.source = src;
+                        herm_editor.reloadFromSource();
+                        console.addLog(LogEntry::Level::INFO, "Undo: %zu chars", src.size());
+                    }
+                    undo_redo_held = true;
+                }
+            } else if (GetAsyncKeyState('Y') & 0x8000) {
+                if (!undo_redo_held) {
+                    std::string src;
+                    if (undo_redo.redo(src)) {
+                        editor_source = src;
+                        herm_editor.source = src;
+                        herm_editor.reloadFromSource();
+                        console.addLog(LogEntry::Level::INFO, "Redo: %zu chars", src.size());
+                    }
+                    undo_redo_held = true;
+                }
+            } else {
+                undo_redo_held = false;
+            }
+        } else {
+            undo_redo_held = false;
         }
 
         // Render — always renders when dirty
@@ -344,6 +479,17 @@ void VisorApp::run() {
                     }
                 }
                 renderer.vk_scene.updateUBO(ubo);
+
+                // --- ImGui frame (T-F6) ---
+                if (vk_ctx.imgui_enabled) {
+                    ImGui_ImplWin32_NewFrame();
+                    ImGui::NewFrame();
+                    ImGuiIO& io = ImGui::GetIO();
+                    io.DisplaySize = ImVec2((float)workspace.active().w, (float)workspace.active().h);
+                    drawEditorUI();
+                    ImGui::Render();
+                }
+
                 vk_ctx.drawFrame(renderer.vk_scene, rw, rh);
 
                 InvalidateRect(win.hwnd_viewport, nullptr, FALSE);
@@ -367,6 +513,24 @@ void VisorApp::run() {
             frame_count = 0;
             fps_last_tick = now;
             snprintf(fps_text, sizeof(fps_text), "FPS: %u | render: %ums | pump: %ums | scale: %.2f", fps, last_render_ms, last_pump_ms, render_scale);
+        }
+
+        // T-116: Update profiler stats every frame
+        {
+            ProfilerStats ps;
+            ps.fps = fps;
+            ps.render_ms = last_render_ms;
+            ps.pump_ms = last_pump_ms;
+            ps.render_scale = render_scale;
+            ps.viewport_w = workspace.active().w;
+            ps.viewport_h = workspace.active().h;
+            ps.ont_mode = renderer.ont_mode;
+            if (renderer.ont_scene.header) {
+                ps.node_count = renderer.ont_scene.header->node_count;
+                ps.material_count = renderer.ont_scene.header->material_count;
+                ps.bytecode_size = renderer.ont_scene.header->bytecode_size;
+            }
+            profiler.update(ps);
         }
 
         // Update title at most once per second (reduces GDI spam)
@@ -421,8 +585,281 @@ void VisorApp::run() {
         }
     }
     renderer.vk_scene.cleanup();
+    vk_ctx.destroyViewportImage();
+    if (vk_ctx.imgui_enabled) {
+        vk_ctx.shutdownImGui();
+        ImGui::DestroyContext();
+    }
     vk_ctx.cleanup();
     win.destroy();
+}
+
+void VisorApp::drawEditorUI() {
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize(viewport->Size);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGuiWindowFlags dsFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking
+        | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize
+        | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+    ImGui::Begin("DockSpace", nullptr, dsFlags);
+    ImGui::PopStyleVar(2);
+
+    if (ImGui::BeginMenuBar()) {
+        // --- File ---
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New", "Ctrl+N")) { herm_editor.initDefault(); editor_source = herm_editor.source; undo_redo.clear(); undo_redo.saveState(editor_source); }
+            if (ImGui::MenuItem("Open...", "Ctrl+O")) {
+#ifdef _WIN32
+                char filename[MAX_PATH] = {};
+                OPENFILENAMEA ofn = {};
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = GetActiveWindow();
+                ofn.lpstrFilter = "Herm Source (*.herm)\0*.herm\0All Files (*.*)\0*.*\0";
+                ofn.lpstrFile = filename;
+                ofn.nMaxFile = MAX_PATH;
+                ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+                if (GetOpenFileNameA(&ofn)) {
+                    herm_editor.openFile(filename);
+                    editor_source = herm_editor.source;
+                    undo_redo.clear();
+                    undo_redo.saveState(editor_source);
+                    console.addLog(LogEntry::Level::INFO, "Opened: %s", filename);
+                }
+#endif
+            }
+            if (ImGui::MenuItem("Save", "Ctrl+S")) {
+                if (herm_editor.file_path.empty()) {
+                    herm_editor.saveAsDialog();
+                } else {
+                    herm_editor.saveFile();
+                }
+            }
+            if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) { herm_editor.saveAsDialog(); }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Exit")) { running = false; }
+            ImGui::EndMenu();
+        }
+        // --- Edit ---
+        if (ImGui::BeginMenu("Edit")) {
+            if (ImGui::MenuItem("Undo", "Ctrl+Z")) {
+                std::string src;
+                if (undo_redo.undo(src)) { editor_source = src; herm_editor.source = src; herm_editor.reloadFromSource(); }
+            }
+            if (ImGui::MenuItem("Redo", "Ctrl+Y")) {
+                std::string src;
+                if (undo_redo.redo(src)) { editor_source = src; herm_editor.source = src; herm_editor.reloadFromSource(); }
+            }
+            ImGui::EndMenu();
+        }
+        // --- View ---
+        if (ImGui::BeginMenu("View")) {
+            ImGui::MenuItem("Console", nullptr, &console.visible);
+            ImGui::MenuItem("Editor .herm", nullptr, &herm_editor.visible);
+            ImGui::EndMenu();
+        }
+        // --- Help ---
+        if (ImGui::BeginMenu("Help")) {
+            if (ImGui::MenuItem("About")) { /* TODO */ }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
+
+    // --- Toolbar ---
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 3));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 0));
+
+    // Mode toggle
+    const char* mode_label = renderer.ont_mode ? "Mode: GPU" : "Mode: CPU";
+    if (ImGui::Button(mode_label, ImVec2(80, 0))) {
+        renderer.ont_mode = !renderer.ont_mode;
+        dirty = true;
+        title_dirty = true;
+    }
+    ImGui::SameLine();
+    ImGui::Text("|");
+    ImGui::SameLine();
+
+    // Camera mode
+    const char* cam_mode = "Orbit";
+    if (ImGui::Button(cam_mode, ImVec2(60, 0))) { /* TODO: cycle modes */ }
+    ImGui::SameLine();
+    ImGui::Text("|");
+    ImGui::SameLine();
+
+    // Render scale
+    ImGui::Text("Scale:");
+    ImGui::SameLine();
+    if (ImGui::SliderFloat("##scale", &render_scale, 0.1f, 2.0f, "%.1f")) {
+        dirty = true;
+        title_dirty = true;
+    }
+    ImGui::SameLine();
+    ImGui::Text("|");
+    ImGui::SameLine();
+
+    // T-105: Gizmo mode buttons
+    if (ImGui::Button(gizmos.mode == GizmoMode::MOVE ? "[Move]" : "Move", ImVec2(50, 0))) {
+        gizmos.mode = GizmoMode::MOVE;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(gizmos.mode == GizmoMode::ROTATE ? "[Rot]" : "Rot", ImVec2(50, 0))) {
+        gizmos.mode = GizmoMode::ROTATE;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(gizmos.mode == GizmoMode::SCALE ? "[Scale]" : "Scale", ImVec2(55, 0))) {
+        gizmos.mode = GizmoMode::SCALE;
+    }
+    ImGui::SameLine();
+    ImGui::Text("|");
+    ImGui::SameLine();
+
+    // FPS
+    ImGui::Text("%s", fps_text);
+
+    ImGui::PopStyleVar(2);
+
+    ImGuiID dockspace_id = ImGui::GetID("DockSpace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+    ImGui::End();
+
+    if (ImGui::Begin("Viewport")) {
+        if (vk_ctx.viewport_ds) {
+            ImVec2 avail = ImGui::GetContentRegionAvail();
+            float aspect = (float)vk_ctx.viewport_w / (float)vk_ctx.viewport_h;
+            float img_w = avail.x;
+            float img_h = img_w / aspect;
+            if (img_h > avail.y) { img_h = avail.y; img_w = img_h * aspect; }
+            ImGui::Image((ImTextureID)vk_ctx.viewport_ds, ImVec2(img_w, img_h));
+
+            // T-105: Draw gizmos overlay on viewport
+            gizmos.draw(ontology, scene_mgr.graph, renderer.scene, cam_ctrl,
+                        workspace.active().w, workspace.active().h);
+        } else {
+            ImGui::Text("SDF render (waiting for first frame...)");
+        }
+        ImGui::End();
+    }
+    if (ImGui::Begin("Properties")) {
+        ImGui::Text("Engine State: Running");
+        ImGui::Text("Resolution: %ux%u", workspace.active().w, workspace.active().h);
+        ImGui::Separator();
+
+        // T-110: Scheduler state
+        ImGui::Text("Scheduler:");
+        const char* state_str = "IDLE";
+        switch (scheduler.state) {
+            case Scheduler::State::IDLE:      state_str = "IDLE"; break;
+            case Scheduler::State::DIRTY:     state_str = "DIRTY (waiting...)"; break;
+            case Scheduler::State::COMPILING: state_str = "COMPILING..."; break;
+            case Scheduler::State::VALIDATING: state_str = "VALIDATING..."; break;
+            case Scheduler::State::PUBLISHED: state_str = "PUBLISHED"; break;
+            case Scheduler::State::STATE_ERROR: state_str = "ERROR"; break;
+        }
+        ImGui::Text("  State: %s", state_str);
+        if (scheduler.last_good.ok) {
+            ImGui::Text("  Last: nodes=%u mats=%u bc=%u bytes",
+                scheduler.last_good.nodes, scheduler.last_good.materials,
+                scheduler.last_good.bytecode_bytes);
+        }
+
+        // Anomaly Gate
+        if (!last_anomalies.empty()) {
+            ImGui::Separator();
+            ImGui::Text("Anomalies:");
+            ImGui::TextWrapped("%s", AnomalyGate::summary(last_anomalies).c_str());
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Editor .herm:");
+        ImGui::TextWrapped("%s", editor_status.c_str());
+        ImGui::End();
+    }
+    if (ImGui::Begin("Hello ImGui")) { ImGui::Text("Integracion ImGui OK (T-F6)"); ImGui::End(); }
+
+    // --- Editor de codigo .herm + live-compile (T-111) ---
+    if (ImGui::Begin("Editor .herm")) {
+        // Set compile callback (captures this via static lambda)
+        static VisorApp* s_app = nullptr;
+        s_app = this;
+        herm_editor.setCompileCallback([](const std::string& src, std::string* err, void* ud) -> bool {
+            VisorApp* app = (VisorApp*)ud;
+            app->editor_source = src;
+
+            // GPU path
+            if (app->renderer.use_vulkan) {
+                mg::OntScene ont;
+                if (mg::compileHermToOntScene(src, ont, err)) {
+                    app->renderer.ont_scene = ont;
+                    app->renderer.ont_mode = true;
+                    app->editor_has_scene = true;
+                    char s[256];
+                    snprintf(s, sizeof(s), "[ok] ont: nodes=%u mats=%u bc=%u bytes",
+                             ont.header->node_count, ont.header->material_count,
+                             ont.header->bytecode_size);
+                    app->editor_status = s;
+                    app->dirty = true;
+                    app->title_dirty = true;
+                    app->undo_redo.saveState(src);
+                    return true;
+                }
+                return false;
+            }
+            // CPU path
+            else {
+                mg::Scene sc;
+                if (mg::compileHermToScene(src, sc, err)) {
+                    app->renderer.scene = sc;
+                    if (app->renderer.scene.lights.empty()) {
+                        Light def;
+                        def.name = "default";
+                        def.type = LightType::DIRECTIONAL;
+                        def.direction = {0.3f, 0.8f, 0.5f};
+                        app->renderer.scene.lights.push_back(def);
+                    }
+                    app->scene_mgr.rebuildScene(app->renderer);
+                    app->cam_ctrl.setOrbit(app->renderer.scene.camera.target, 5.0f, 0, 0.5f);
+                    app->cam_ctrl.applyTo(app->renderer.scene.camera);
+                    app->renderer.ont_mode = false;
+                    app->editor_has_scene = true;
+                    char s[256];
+                    snprintf(s, sizeof(s), "[ok] scene: nodes=%zu mats=%zu lights=%zu",
+                             sc.nodes.size(), sc.materials.size(), sc.lights.size());
+                    app->editor_status = s;
+                    app->dirty = true;
+                    app->title_dirty = true;
+                    app->undo_redo.saveState(src);
+                    return true;
+                }
+                return false;
+            }
+        }, this);
+
+        herm_editor.draw();
+
+        // Status in properties
+        ImGui::SameLine();
+        ImGui::Text("%s", editor_has_scene ? "preview: ON" : "preview: OFF");
+        ImGui::End();
+    }
+
+    // --- T-113: Console/Log panel ---
+    console.draw();
+
+    // --- T-116: Profiler panel ---
+    profiler.draw();
+
+    // --- T-103: Ontology Tree panel ---
+    ontology.draw(scene_mgr.graph, renderer.scene);
+
+    // --- T-104: Inspector F/Q/B panel ---
+    inspector.draw(ontology, scene_mgr.graph, renderer.scene);
+
+    // --- T-112: Tensor Inspector panel ---
+    tensor_inspector.draw(ontology, scene_mgr.graph, renderer.scene);
 }
 
 }

@@ -1,0 +1,51 @@
+flowchart LR
+    subgraph Editor["📝 EDITOR (proceso host)"]
+        UI["UI ImGui\n(M1–M7, M11–M28, M30–M32)"]
+        EDIT_PIPE["Live-compile Pipeline\n(M8, M9, M10a, Scheduler, Anomaly Gate)"]
+        BRIDGE_HOST["Bridge Host\nPython loader, C dlopen"]
+        PROJ[".mgproj + layout + AST cache"]
+    end
+
+    subgraph Runtime["🚀 RUNTIME (proceso motor / exportado)"]
+        VM["Bytecode VM\n(.ont + Systems)"]
+        GPU["Vulkan Compute Raymarch"]
+        CPU_FB["SIMD Fallback"]
+        SYS["Systems Execution\n(input → tensores)"]
+        BRIDGE_RT["Bridge Runtime\nread/write tensor 1×8"]
+        READBACK["Readback/Staging"]
+    end
+
+    subgraph External["🌐 EXTERNO (no hermético)"]
+        NET["Red / Servidor\n(multijugador)"]
+        FS["File System\n.herm / .mgproj"]
+        USER["Usuario\ninput teclado/ratón"]
+    end
+
+    %% Límites
+    UI -.->|delega| EDIT_PIPE
+    EDIT_PIPE -.->|.ont válido| VM
+    PROJ -.->|persist| EDIT_PIPE
+    USER -.->|IInputSource| UI
+    UI -.->|Edit/Play mode| EDIT_PIPE
+    UI -.->|Play| VM
+    
+    VM <--> GPU
+    VM <--> CPU_FB
+    SYS -.->|escribe| VM
+    BRIDGE_RT -.->|inyecta stream| VM
+    BRIDGE_HOST -.->|load/unload| BRIDGE_RT
+    NET -.->|paquetes| BRIDGE_RT
+    FS -.->|carga| EDIT_PIPE
+    
+    GPU -.->|RGBA| UI
+    VM -.->|tensores| READBACK
+    READBACK -.->|probe points| UI
+
+    %% Estilos
+    classDef editor fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef runtime fill:#fff3e0,stroke:#ef6c00,stroke-width:2px;
+    classDef external fill:#fafafa,stroke:#757575,stroke-width:1px,stroke-dasharray: 5 5;
+
+    class UI,EDIT_PIPE,BRIDGE_HOST,PROJ editor;
+    class VM,GPU,CPU_FB,SYS,BRIDGE_RT,READBACK runtime;
+    class NET,FS,USER external;

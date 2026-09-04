@@ -1,0 +1,97 @@
+flowchart TB
+    %% ============ SOURCES ============
+    subgraph Sources["📂 FUENTES DE AUTORING (Editor)"]
+        direction TB
+        HERM[".herm\nLenguaje Hermético\n(texto canónico)"]
+        NG["Node Graph\n(visual, persiste layout en .mgproj)"]
+        SCRIPTS["Scripts Python/C\n(Bridges → Systems externos)"]
+        SYSTEMS["Systems/Game-logic\nauthoring en editor"]
+        AUDIO_SRC["Audio System\nA(x,y,z,w) analítico"]
+        UI_SRC["UI System (SDF-UI)\nnodos SDF compuestos"]
+    end
+
+    %% ============ EDITOR PIPELINE ============
+    subgraph EditorPipeline["⚙️ PIPELINE DEL EDITOR (Live-compile)"]
+        direction TB
+        PARSE["Parser + Semántica\n(lenguaje-hermetico lib)"]
+        AST["AST Canónico\n(en memoria, única verdad)"]
+        RIH["RIH (IR Alto)\n+ CTP spans 1×8"]
+        TB_IR["TB (IR Bajo)\n8×8 PAL lossless"]
+        ONT[".ont (Bytecode)\nbinario lineal para VM"]
+        VAL_A["Validation Capa (a)\nAST estático: repeat sin dominio,\nNaN, recursión sin base, k<0"]
+        VAL_B["Validation Capa (b) Runtime\nTensor Inspector → probe points\ncorrelaciones W, no-finito"]
+        SCHED["Scheduler + Input Bus\ndebounce ~16-50ms\nasync recompile .ont completo"]
+        ANOMALY["Anomaly Gate\npublica bytecode solo si OK\nfallback: último frame bueno"]
+    end
+
+    %% ============ RUNTIME ============
+    subgraph Runtime["🚀 RUNTIME (Motor / Ejecutable Exportado)"]
+        direction TB
+        VM["Bytecode VM\n.carga .ont + Systems + Bridges"]
+        GPU["Vulkan Compute\nRaymarch SDF\nΦ(p) → RGBA"]
+        CPU["SIMD/SSE Fallback\nRaymarch CPU"]
+        SYS_RUN["Systems Execution\n(input → tensores 1×8)"]
+        BRIDGES["Bridges Python/C\nread_tensor / write_tensor\nABI: [x,y,z,w,r,g,b,a] versionado"]
+        AUDIO_RUN["Audio Synthesis\ncampo A(x,y,z,w) → listener"]
+        UI_RUN["SDF-UI System\nHUD/menús como nodos SDF"]
+        READBACK["Readback / Staging Buffer\nGPU: VkBuffer staging\nCPU: lectura directa memoria"]
+    end
+
+    %% ============ OUTPUTS ============
+    subgraph Outputs["📤 SALIDAS"]
+        FRAME["Framebuffer RGBA\n60 FPS, 130MB pico"]
+        INSPECTOR["Tensor Inspector\nnumérico, plot vs W, heatmap"]
+        EXPORT["Export → Ejecutable\n.bundle: .ont + Systems + Bridges"]
+        PROJ[".mgproj (JSON)\nrefs .ont/.herm/scripts + layout + schema_version"]
+    end
+
+    %% ============ EDGES ============
+    HERM --> PARSE
+    NG --> AST
+    PARSE --> AST
+    AST --> RIH
+    RIH --> TB_IR
+    TB_IR --> ONT
+    AST --> VAL_A
+    VAL_A -.->|Error/Anomaly| ANOMALY
+    ONT --> SCHED
+    SCHED --> ANOMALY
+    ANOMALY -->|Bytecode válido| VM
+    
+    SCRIPTS --> BRIDGES
+    SYSTEMS --> SYS_RUN
+    AUDIO_SRC --> AUDIO_RUN
+    UI_SRC --> UI_RUN
+    
+    VM --> GPU
+    VM --> CPU
+    SYS_RUN --> VM
+    BRIDGES --> VM
+    AUDIO_RUN --> VM
+    UI_RUN --> VM
+    
+    GPU --> FRAME
+    CPU --> FRAME
+    VM --> READBACK
+    READBACK --> INSPECTOR
+    VAL_B -.->|probe points| READBACK
+    INSPECTOR -.->|anomaly flags| VAL_B
+    
+    ONT -.->|offline| TB_IR --> EXPORT
+    SYS_RUN -.-> EXPORT
+    BRIDGES -.-> EXPORT
+    AST -.->|persist| PROJ
+    NG -.->|layout| PROJ
+
+    %% ============ STYLES ============
+    classDef source fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef editor fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef runtime fill:#fff3e0,stroke:#ef6c00,stroke-width:2px;
+    classDef output fill:#fce4ec,stroke:#c2185b,stroke-width:2px;
+    classDef validation fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5;
+
+    class HERM,NG,SCRIPTS,SYSTEMS,AUDIO_SRC,UI_SRC source;
+    class PARSE,AST,RIH,TB_IR,ONT,SCHED,ANOMALY editor;
+    class VM,GPU,CPU,SYS_RUN,BRIDGES,AUDIO_RUN,UI_RUN,READBACK runtime;
+    class FRAME,INSPECTOR,EXPORT,PROJ output;
+    class VAL_A,VAL_B validation;

@@ -1,0 +1,160 @@
+flowchart TB
+    %% ============ SHELL ============
+    subgraph Shell["🖥️ SHELL (M1–M7)"]
+        M1["M1 MenuBar\nFile/Edit/GameObject/Component/Systems/Window/Help\n[> Play] [# Stop]"]
+        M2["M2 Toolbar\nP/I/K | Move/Rotate/Scale | Grid/Snap\nMode: Edit / Play"]
+        M3["M3 DockSpace / Layout\nlayouts guardables/recreables\npersiste en .mgproj"]
+        M4["M4 Multi-viewport\npersp/orto, W-slices, IR/Tensor"]
+        M5["M5 Command Palette (Ctrl+K)"]
+        M6["M6 Preferences\nkeymaps, theme, paths"]
+        M7["M7 Input/Spaces Manager\nEdit vs Play | ray-SDF 2D/3D\nIInputSource unificado"]
+    end
+
+    %% ============ DECLARACIÓN ============
+    subgraph Declaration["📝 DECLARACIÓN SDF (M8–M10)"]
+        M8["M8 Hermetic Code Editor\n.herm + live-compile\ngutter errores, modo fuente"]
+        M9["M9 SDF Node Graph\n2 grafos: UI (layout) ↔ AST (RIG)\nsync incremental, Undo/Redo cmd pattern"]
+        M10["M10 Scene Validation / Anomaly\nCapa (a) estática dev-only → Console\nCapa (b) runtime → Tensor Inspector"]
+    end
+
+    %% ============ COMPOSICIÓN ============
+    subgraph Composition["🧱 COMPOSICIÓN (M11–M16)"]
+        M11["M11 Árbol Ontológico\nscene graph único + facetas F/Q/B\nfiltrable/agrupable por capa"]
+        M12["M12 Inspector F/Q/B\nFísica/Química/Biología + Systems + Scripts"]
+        M13["M13 Gizmos / Transform\noverlay ImGui 2D proyectado (v1)"]
+        M14["M14 Snap / Grid / Units"]
+        M15["M15 Layers / Tags\neditor-only, descartan en export"]
+        M16["M16 Camera Bookmarks"]
+    end
+
+    %% ============ LOOKDEV ============
+    subgraph Lookdev["🎨 LOOKDEV (M17–M21)"]
+        M17["M17 Material Editor PBR\nfunciones analíticas, sin texturas"]
+        M18["M18 Material Node Graph\ncomposición analítica (deuda)"]
+        M19["M19 Lighting / Environment\nGPU: 1 luz hardcodeada → ghosted"]
+        M20["M20 Render Settings / Quality\ntoggles AO/sombras ghosted (deuda)"]
+        M21["M21 Bake / MLIR Pipeline\noffline via MLIR-CampoTensorial"]
+    end
+
+    %% ============ TIEMPO ============
+    subgraph Time["⏱️ TIEMPO (M22–M23)"]
+        M22["M22 W-Scrubber (Block Universe)\ninspecciona 4D autorado\nkeyframes = abstracción opcional"]
+        M23["M23 Play / Run Systems\ngenera W interactivamente vía Systems\nno es solo cortar bloque fijo"]
+    end
+
+    %% ============ ASSETS ============
+    subgraph Assets["📦 ASSETS (M24–M25)"]
+        M24["M24 Source Browser + Export\n.herm/scripts/.mgproj → ejecutable"]
+        M25["M25 .mgproj Save/Load\nJSON puro, refs externas, schema_version\nautosave + crash recovery snapshot"]
+    end
+
+    %% ============ SOPORTE ============
+    subgraph Support["🛠️ SOPORTE (M26–M32)"]
+        M26["M26 Console / Log\nerrores, anomaly diagnostics\nclick → fuente"]
+        M27["M27 Profiler / Stats\nFPS, ms, dispatches, 75% normales"]
+        M28["M28 Undo/Redo History\ncommand pattern sobre AST diffs\ndeterminista"]
+        M29["M29 Tensor / State Inspector ⭐\nReadback GPU/CPU → probe points\ncorrelaciones W + anomaly capa (b)"]
+        M30["M30 Empty states / Onboarding"]
+        M31["M31 Help\ndocs, atajos, glosario hermético"]
+        M32["M32 Theming\ntokens Dark/Light/High-contrast\na11y realista = teclado + contraste"]
+    end
+
+    %% ============ SYSTEMS/TRANSVERSAL ============
+    subgraph Systems["🔧 SYSTEMS / TRANSVERSALES (M33–M36)"]
+        M33["M33 Systems / Game-logic\nauthoring rules, enganche a nodos"]
+        M34["M34 Audio System\nA(x,y,z,w) analítico → listener"]
+        M35["M35 UI System (SDF-UI)\nHUD/menús como nodos SDF\nnorth-star post-v1, deuda técnica"]
+        M36["M36 Scripting Bridge\nPython/C → tensores 1×8 (ABI versionado)\núnica fuente sancionada de no-determinismo\ninyecta stream externo al Input Bus"]
+    end
+
+    %% ============ EDGES: Shell -> others ============
+    M1 -.-> M2
+    M1 -.-> M3
+    M1 -.-> M24
+    M2 -.-> M7
+    M2 -.-> M13
+    M3 -.-> M8
+    M3 -.-> M9
+    M3 -.-> M11
+    M3 -.-> M12
+    M3 -.-> M17
+    M3 -.-> M22
+    M3 -.-> M26
+    M3 -.-> M29
+    M4 -.-> M11
+    M4 -.-> M13
+    M5 -.-> M8
+    M5 -.-> M9
+    M5 -.-> M11
+    M7 -.-> M13
+    M7 -.-> M22
+    M7 -.-> M23
+
+    %% ============ EDGES: Declaration ============
+    M8 -.->|live-compile| M10
+    M9 -.->|AST sync| M10
+    M8 -.->|.ont| M24
+    M9 -.->|AST| M11
+    M10 -.->|issues| M26
+
+    %% ============ EDGES: Composition ============
+    M11 -.->|selection| M12
+    M11 -.->|node| M13
+    M13 -.->|transform| M11
+    M15 -.->|filter| M11
+
+    %% ============ EDGES: Lookdev ============
+    M17 -.->|material| M11
+    M18 -.->|functions| M17
+    M19 -.->|lights| M11
+    M20 -.->|params| M29
+
+    %% ============ EDGES: Time ============
+    M22 -.->|W-slice| M11
+    M23 -.->|input| M7
+    M23 -.->|W interactivo| M33
+    M23 -.->|Systems run| M34
+    M23 -.->|Systems run| M35
+
+    %% ============ EDGES: Assets ============
+    M24 -.->|reads| M8
+    M24 -.->|reads| M9
+    M24 -.->|reads| M36
+    M25 -.->|persists| M3
+    M25 -.->|persists| M9
+    M25 -.->|persists| M15
+
+    %% ============ EDGES: Support ============
+    M10 -.->|errors| M26
+    M29 -.->|tensors| M27
+    M29 -.->|anomaly| M10
+    M28 -.->|covers| M8
+    M28 -.->|covers| M9
+    M28 -.->|covers| M11
+    M28 -.->|covers| M12
+
+    %% ============ EDGES: Systems ============
+    M33 -.->|hooks| M11
+    M34 -.->|field| M11
+    M35 -.->|nodes| M11
+    M36 -.->|tensors| M29
+    M36 -.->|input stream| M7
+
+    %% ============ STYLES ============
+    classDef shell fill:#e8eaf6,stroke:#283593,stroke-width:2px;
+    classDef decl fill:#e0f7fa,stroke:#006064,stroke-width:2px;
+    classDef comp fill:#f1f8e9,stroke:#33691e,stroke-width:2px;
+    classDef look fill:#fff8e1,stroke:#f57f17,stroke-width:2px;
+    classDef time fill:#fce4ec,stroke:#880e4f,stroke-width:2px;
+    classDef asset fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef supp fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
+    classDef sys fill:#fbe9e7,stroke:#bf360c,stroke-width:2px;
+
+    class M1,M2,M3,M4,M5,M6,M7 shell;
+    class M8,M9,M10 decl;
+    class M11,M12,M13,M14,M15,M16 comp;
+    class M17,M18,M19,M20,M21 look;
+    class M22,M23 time;
+    class M24,M25 asset;
+    class M26,M27,M28,M29,M30,M31,M32 supp;
+    class M33,M34,M35,M36 sys;

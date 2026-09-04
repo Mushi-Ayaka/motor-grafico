@@ -46,6 +46,34 @@ struct VulkanContext {
     bool test_pattern = false; // when true, fills swapchain with solid red (bypasses compute)
 
     bool drawFrame(class VulkanSceneData& scene_data, uint32_t render_w, uint32_t render_h);
+
+    // --- ImGui overlay (T-F6) -------------------------------------------------
+    VkRenderPass    imgui_render_pass    = VK_NULL_HANDLE;
+    VkDescriptorPool imgui_descriptor_pool = VK_NULL_HANDLE;
+    std::vector<VkFramebuffer> imgui_framebuffers;
+    VkCommandPool   imgui_command_pool   = VK_NULL_HANDLE;
+    VkCommandBuffer imgui_command_buffer  = VK_NULL_HANDLE;
+    VkSemaphore     imgui_present_sem     = VK_NULL_HANDLE; // graphics -> present
+    bool            imgui_enabled         = false;
+
+    bool initImGui(HWND hwnd);
+    void createImguiFramebuffers();
+    void shutdownImGui();
+
+    // --- Viewport image (T-102): offscreen render target for ImGui::Image -----
+    VkImage         viewport_image        = VK_NULL_HANDLE;
+    VkImageView     viewport_image_view   = VK_NULL_HANDLE;
+    VmaAllocation   viewport_image_alloc  = VK_NULL_HANDLE;
+    VkSampler       viewport_sampler      = VK_NULL_HANDLE;
+    VkDescriptorPool viewport_ds_pool     = VK_NULL_HANDLE;
+    VkDescriptorSetLayout viewport_ds_layout = VK_NULL_HANDLE;
+    VkDescriptorSet viewport_ds           = VK_NULL_HANDLE;
+    uint32_t        viewport_w            = 0;
+    uint32_t        viewport_h            = 0;
+
+    bool initViewportImage(uint32_t w, uint32_t h);
+    void destroyViewportImage();
+    void copyOutputToViewport(VkCommandBuffer cmd, VkBuffer output_buffer, uint32_t w, uint32_t h);
 };
 
 extern VulkanContext vk_ctx;
