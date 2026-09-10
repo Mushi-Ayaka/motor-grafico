@@ -12,6 +12,14 @@ void TensorInspector::updateHistory(float tensor[8]) {
     history_idx = (history_idx + 1) % HISTORY_SIZE;
 }
 
+void TensorInspector::updateFromGPU(float tensor[8]) {
+    for (int i = 0; i < 8; i++) {
+        gpu_tensor[i] = tensor[i];
+    }
+    use_gpu_data = true;
+    updateHistory(tensor);
+}
+
 void TensorInspector::draw(OntologyPanel& ontology, scene::SceneGraph& graph, Scene& scene) {
     if (!visible) return;
 
@@ -36,19 +44,28 @@ void TensorInspector::draw(OntologyPanel& ontology, scene::SceneGraph& graph, Sc
 
         // Display tensor components as color swatch
         ImGui::Text("Material: %s", mat.name.c_str());
+        ImGui::SameLine();
+        if (use_gpu_data) {
+            ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "[GPU]");
+        } else {
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[CPU]");
+        }
         ImGui::Separator();
 
-        // Tensor 1×8 as RGBA color
-        float tensor[8] = {
-            mat.base_color.x, mat.base_color.y, mat.base_color.z, 1.0f,
-            mat.emission.x, mat.emission.y, mat.emission.z, 1.0f
-        };
+        // Tensor 1×8 as RGBA color - use GPU data if available
+        float tensor[8];
+        if (use_gpu_data) {
+            for (int i = 0; i < 8; i++) tensor[i] = gpu_tensor[i];
+        } else {
+            tensor[0] = mat.base_color.x; tensor[1] = mat.base_color.y; tensor[2] = mat.base_color.z; tensor[3] = 1.0f;
+            tensor[4] = mat.emission.x; tensor[5] = mat.emission.y; tensor[6] = mat.emission.z; tensor[7] = 1.0f;
+        }
 
         // Update history
         updateHistory(tensor);
 
         // Color preview
-        ImVec4 col(mat.base_color.x, mat.base_color.y, mat.base_color.z, 1.0f);
+        ImVec4 col(tensor[0], tensor[1], tensor[2], 1.0f);
         ImGui::ColorButton("##tensor_color", col, 0, ImVec2(60, 60));
 
         ImGui::SameLine();

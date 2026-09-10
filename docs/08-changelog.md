@@ -2,6 +2,39 @@
 
 > **Vida del proyecto:** 4 de junio → 17 de junio de 2026 (v0.15–v0.26)
 
+## 2026-09-03 — T-114/T-117/T-118/T-119/T-120: Features v1 completas
+
+### Resumen
+Se implementan las 5 features faltantes para v1 completa: .mgproj Save/Load, Source Browser + Export, Readback/Staging, Command Palette, Multi-viewport.
+
+### T-114: .mgproj Save/Load (M25)
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| Project v1 JSON | `scene/project.h` | Formato JSON con schema_version, refs externas, editor state, DockSpace layout. |
+| Save/Load UI | `visor/visor_app.cpp` | File > Save/Open Project, Ctrl+S/O, autosave cada 60s, crash recovery (.bak). |
+
+### T-117: Source Browser + Export (M24)
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| SourceBrowser | `visor/source_browser.h/.cpp` | Árbol de archivos (.herm, .mgproj, .cpp, .h), doble-click abre. |
+| ExportDialog | `visor/export_dialog.h/.cpp` | Export a Windows .exe, opciones de inclusión, pre-export validation. |
+
+### T-118: Readback/Staging GPU→CPU (M29)
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| Readback buffer | `render/vulkan_core.h/.cpp` | VkBuffer staging, mapped memory, throttle cada 30 frames. |
+| Tensor Inspector | `visor/tensor_inspector.cpp` | Muestra datos GPU cuando disponibles, indicador [GPU]/[CPU]. |
+
+### T-119: Command Palette (M5)
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| CommandPalette | `visor/command_palette.h/.cpp` | Fuzzy search, 25+ comandos, Ctrl+K toggle. |
+
+### T-120: Multi-viewport (M4)
+| Cambio | Archivo | Descripción |
+|--------|---------|-------------|
+| ViewportManager | `visor/viewport_manager.h/.cpp` | Tabs ilimitados, modo Render/IR/Tensor, botón "+". |
+
 ## 2026-09-03 — T-112: Tensor Inspector (M29)
 
 ### Resumen

@@ -411,6 +411,11 @@ void VisorApp::run() {
                     }
                     undo_redo_held = true;
                 }
+            } else if (GetAsyncKeyState('K') & 0x8000) {
+                // T-119: Ctrl+K = Command Palette
+                if (!command_palette.visible) {
+                    command_palette.toggle();
+                }
             } else {
                 undo_redo_held = false;
             }
@@ -533,6 +538,27 @@ void VisorApp::run() {
             profiler.update(ps);
         }
 
+        // T-114: Autosave backup every 60 seconds
+        if (project_dirty && !project_path.empty()) {
+            static u32 last_autosave = 0;
+            if (now - last_autosave > 60000) {
+                project.applyFrom(renderer.scene);
+                project.editor_source = editor_source;
+                project.gizmo_mode = (int)gizmos.mode;
+                project.render_scale = render_scale;
+                project.saveBackup(project_path.c_str());
+                last_autosave = now;
+            }
+        }
+
+        // T-118: Update Tensor Inspector with GPU readback data
+        if (vk_ctx.readback_ready) {
+            float gpu_tensor[8] = {};
+            if (vk_ctx.getReadbackData(gpu_tensor, 8)) {
+                tensor_inspector.updateFromGPU(gpu_tensor);
+            }
+        }
+
         // Update title at most once per second (reduces GDI spam)
         if (title_dirty || now - last_title_tick > 1000) {
             updateTitle();
@@ -610,8 +636,58 @@ void VisorApp::drawEditorUI() {
     if (ImGui::BeginMenuBar()) {
         // --- File ---
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("New", "Ctrl+N")) { herm_editor.initDefault(); editor_source = herm_editor.source; undo_redo.clear(); undo_redo.saveState(editor_source); }
-            if (ImGui::MenuItem("Open...", "Ctrl+O")) {
+            if (ImGui::MenuItem("New", "Ctrl+N")) {
+                herm_editor.initDefault();
+                editor_source = herm_editor.source;
+                undo_redo.clear();
+                undo_redo.saveState(editor_source);
+                project.setDefault();
+                project_path.clear();
+                project_dirty = false;
+                console.addLog(LogEntry::Level::INFO, "New project created");
+            }
+            if (ImGui::MenuItem("Open Project...", "Ctrl+Shift+O")) {
+#ifdef _WIN32
+                char filename[MAX_PATH] = {};
+                OPENFILENAMEA ofn = {};
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = GetActiveWindow();
+                ofn.lpstrFilter = "MG Project (*.mgproj)\0*.mgproj\0All Files (*.*)\0*.*\0";
+                ofn.lpstrFile = filename;
+                ofn.nMaxFile = MAX_PATH;
+                ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+                if (GetOpenFileNameA(&ofn)) {
+                    int wlen = MultiByteToWideChar(CP_UTF8, 0, filename, -1, nullptr, 0);
+                    if (wlen > 0) {
+                        std::wstring wpath((size_t)wlen, L'\0');
+                        MultiByteToWideChar(CP_UTF8, 0, filename, -1, &wpath[0], wlen);
+                        if (!wpath.empty() && wpath.back() == L'\0') wpath.pop_back();
+                        if (project.loadWithRecovery(wpath.c_str())) {
+                            project_path = wpath;
+                            // Apply project state
+                            project.applyTo(renderer.scene);
+                            if (!project.editor_source.empty()) {
+                                herm_editor.source = project.editor_source;
+                                herm_editor.reloadFromSource();
+                                editor_source = project.editor_source;
+                            }
+                            gizmos.mode = (GizmoMode)project.gizmo_mode;
+                            render_scale = project.render_scale;
+                            console.auto_scroll = project.auto_scroll;
+                            console.filter_level = project.console_filter;
+                            undo_redo.clear();
+                            undo_redo.saveState(editor_source);
+                            dirty = true;
+                            title_dirty = true;
+                            console.addLog(LogEntry::Level::INFO, "Project loaded: %s", filename);
+                        } else {
+                            console.addLog(LogEntry::Level::ERROR_LOG, "Failed to load project: %s", filename);
+                        }
+                    }
+                }
+#endif
+            }
+            if (ImGui::MenuItem("Open .herm...", "Ctrl+O")) {
 #ifdef _WIN32
                 char filename[MAX_PATH] = {};
                 OPENFILENAMEA ofn = {};
@@ -626,18 +702,112 @@ void VisorApp::drawEditorUI() {
                     editor_source = herm_editor.source;
                     undo_redo.clear();
                     undo_redo.saveState(editor_source);
+                    // Add to project sources
+                    project.sources.clear();
+                    int wlen = MultiByteToWideChar(CP_UTF8, 0, filename, -1, nullptr, 0);
+                    if (wlen > 0) {
+                        std::wstring wpath((size_t)wlen, L'\0');
+                        MultiByteToWideChar(CP_UTF8, 0, filename, -1, &wpath[0], wlen);
+                        if (!wpath.empty() && wpath.back() == L'\0') wpath.pop_back();
+                        project.sources.push_back({wpath});
+                    }
+                    project_dirty = true;
                     console.addLog(LogEntry::Level::INFO, "Opened: %s", filename);
                 }
 #endif
             }
-            if (ImGui::MenuItem("Save", "Ctrl+S")) {
-                if (herm_editor.file_path.empty()) {
-                    herm_editor.saveAsDialog();
-                } else {
-                    herm_editor.saveFile();
+            ImGui::Separator();
+            if (ImGui::MenuItem("Save Project", "Ctrl+S")) {
+                if (project_path.empty()) {
+                    // Save As
+#ifdef _WIN32
+                    char filename[MAX_PATH] = {};
+                    OPENFILENAMEA ofn = {};
+                    ofn.lStructSize = sizeof(ofn);
+                    ofn.hwndOwner = GetActiveWindow();
+                    ofn.lpstrFilter = "MG Project (*.mgproj)\0*.mgproj\0";
+                    ofn.lpstrFile = filename;
+                    ofn.nMaxFile = MAX_PATH;
+                    ofn.lpstrDefExt = "mgproj";
+                    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+                    if (GetSaveFileNameA(&ofn)) {
+                        int wlen = MultiByteToWideChar(CP_UTF8, 0, filename, -1, nullptr, 0);
+                        if (wlen > 0) {
+                            std::wstring wpath((size_t)wlen, L'\0');
+                            MultiByteToWideChar(CP_UTF8, 0, filename, -1, &wpath[0], wlen);
+                            if (!wpath.empty() && wpath.back() == L'\0') wpath.pop_back();
+                            project_path = wpath;
+                        }
+                    }
+#endif
+                }
+                if (!project_path.empty()) {
+                    // Sync editor state to project
+                    project.applyFrom(renderer.scene);
+                    project.editor_source = editor_source;
+                    project.gizmo_mode = (int)gizmos.mode;
+                    project.render_scale = render_scale;
+                    project.auto_scroll = console.auto_scroll;
+                    project.console_filter = console.filter_level;
+                    if (project.save(project_path.c_str())) {
+                        project_dirty = false;
+                        console.addLog(LogEntry::Level::SUCCESS, "Project saved");
+                    } else {
+                        console.addLog(LogEntry::Level::ERROR_LOG, "Failed to save project");
+                    }
                 }
             }
-            if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) { herm_editor.saveAsDialog(); }
+            if (ImGui::MenuItem("Save Project As...", "Ctrl+Shift+S")) {
+#ifdef _WIN32
+                char filename[MAX_PATH] = {};
+                OPENFILENAMEA ofn = {};
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = GetActiveWindow();
+                ofn.lpstrFilter = "MG Project (*.mgproj)\0*.mgproj\0";
+                ofn.lpstrFile = filename;
+                ofn.nMaxFile = MAX_PATH;
+                ofn.lpstrDefExt = "mgproj";
+                ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+                if (GetSaveFileNameA(&ofn)) {
+                    int wlen = MultiByteToWideChar(CP_UTF8, 0, filename, -1, nullptr, 0);
+                    if (wlen > 0) {
+                        std::wstring wpath((size_t)wlen, L'\0');
+                        MultiByteToWideChar(CP_UTF8, 0, filename, -1, &wpath[0], wlen);
+                        if (!wpath.empty() && wpath.back() == L'\0') wpath.pop_back();
+                        project_path = wpath;
+                        // Sync and save
+                        project.applyFrom(renderer.scene);
+                        project.editor_source = editor_source;
+                        project.gizmo_mode = (int)gizmos.mode;
+                        project.render_scale = render_scale;
+                        if (project.save(project_path.c_str())) {
+                            project_dirty = false;
+                            console.addLog(LogEntry::Level::SUCCESS, "Project saved as: %s", filename);
+                        }
+                    }
+                }
+#endif
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Export...", "Ctrl+E")) {
+                export_dialog.visible = true;
+            }
+            if (ImGui::MenuItem("Source Browser", "Ctrl+B")) {
+                source_browser.visible = !source_browser.visible;
+                if (source_browser.visible && source_browser.root_path.empty()) {
+                    // Set root from project path
+                    if (!project_path.empty()) {
+                        char mbuf[MAX_PATH];
+                        WideCharToMultiByte(CP_UTF8, 0, project_path.c_str(), -1, mbuf, MAX_PATH, nullptr, nullptr);
+                        std::string proj_str(mbuf);
+                        size_t last_sep = proj_str.find_last_of("\\/");
+                        if (last_sep != std::string::npos) {
+                            source_browser.root_path = proj_str.substr(0, last_sep);
+                            source_browser.refresh();
+                        }
+                    }
+                }
+            }
             ImGui::Separator();
             if (ImGui::MenuItem("Exit")) { running = false; }
             ImGui::EndMenu();
@@ -726,20 +896,54 @@ void VisorApp::drawEditorUI() {
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
     ImGui::End();
 
+    // T-120: Multi-viewport with tabs
+    viewport_mgr.setDefaultDS(vk_ctx.viewport_ds);
     if (ImGui::Begin("Viewport")) {
-        if (vk_ctx.viewport_ds) {
-            ImVec2 avail = ImGui::GetContentRegionAvail();
-            float aspect = (float)vk_ctx.viewport_w / (float)vk_ctx.viewport_h;
-            float img_w = avail.x;
-            float img_h = img_w / aspect;
-            if (img_h > avail.y) { img_h = avail.y; img_w = img_h * aspect; }
-            ImGui::Image((ImTextureID)vk_ctx.viewport_ds, ImVec2(img_w, img_h));
+        // Tab bar
+        if (ImGui::BeginTabBar("##viewport_tabs")) {
+            for (int i = 0; i < (int)viewport_mgr.tabs.size(); i++) {
+                ImGuiTabBarFlags flags = ImGuiTabBarFlags_NoCloseWithMiddleMouseButton;
+                if (ImGui::BeginTabItem(viewport_mgr.tabs[i].name.c_str(), nullptr, flags)) {
+                    viewport_mgr.active_tab = i;
+                    ImGui::EndTabItem();
+                }
+            }
+            if (ImGui::TabItemButton("+")) {
+                char name[32];
+                snprintf(name, sizeof(name), "View %d", viewport_mgr.next_tab_id++);
+                viewport_mgr.addTab(name, ViewportMode::RENDER);
+            }
+            ImGui::EndTabBar();
+        }
 
-            // T-105: Draw gizmos overlay on viewport
-            gizmos.draw(ontology, scene_mgr.graph, renderer.scene, cam_ctrl,
-                        workspace.active().w, workspace.active().h);
-        } else {
-            ImGui::Text("SDF render (waiting for first frame...)");
+        // Draw active viewport
+        if (viewport_mgr.active_tab >= 0 && viewport_mgr.active_tab < (int)viewport_mgr.tabs.size()) {
+            auto& tab = viewport_mgr.tabs[viewport_mgr.active_tab];
+            if (vk_ctx.viewport_ds) {
+                ImVec2 avail = ImGui::GetContentRegionAvail();
+                float aspect = (float)vk_ctx.viewport_w / (float)vk_ctx.viewport_h;
+                float img_w = avail.x;
+                float img_h = img_w / aspect;
+                if (img_h > avail.y) { img_h = avail.y; img_w = img_h * aspect; }
+                ImGui::Image((ImTextureID)vk_ctx.viewport_ds, ImVec2(img_w, img_h));
+
+                // T-105: Draw gizmos overlay on viewport
+                gizmos.draw(ontology, scene_mgr.graph, renderer.scene, cam_ctrl,
+                            workspace.active().w, workspace.active().h);
+            } else {
+                ImGui::Text("SDF render (waiting for first frame...)");
+            }
+        }
+
+        // Mode indicator
+        if (viewport_mgr.active_tab >= 0 && viewport_mgr.active_tab < (int)viewport_mgr.tabs.size()) {
+            const char* mode_str = "?";
+            switch (viewport_mgr.tabs[viewport_mgr.active_tab].mode) {
+                case ViewportMode::RENDER: mode_str = "Render"; break;
+                case ViewportMode::IR:     mode_str = "IR/Topology"; break;
+                case ViewportMode::TENSOR: mode_str = "Tensor"; break;
+            }
+            ImGui::Text("Mode: %s", mode_str);
         }
         ImGui::End();
     }
@@ -860,6 +1064,15 @@ void VisorApp::drawEditorUI() {
 
     // --- T-112: Tensor Inspector panel ---
     tensor_inspector.draw(ontology, scene_mgr.graph, renderer.scene);
+
+    // --- T-117: Source Browser panel ---
+    source_browser.draw();
+
+    // --- T-117: Export dialog ---
+    export_dialog.draw();
+
+    // --- T-119: Command Palette ---
+    command_palette.draw();
 }
 
 }

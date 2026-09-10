@@ -74,6 +74,19 @@ struct VulkanContext {
     bool initViewportImage(uint32_t w, uint32_t h);
     void destroyViewportImage();
     void copyOutputToViewport(VkCommandBuffer cmd, VkBuffer output_buffer, uint32_t w, uint32_t h);
+
+    // --- Readback/Staging buffer (T-118): GPU→CPU tensor readback -----
+    VkBuffer        readback_buffer      = VK_NULL_HANDLE;
+    VmaAllocation   readback_alloc       = VK_NULL_HANDLE;
+    void*           readback_mapped      = nullptr;
+    uint32_t        readback_frame_count = 0;   // frames since last readback
+    uint32_t        readback_throttle    = 30;  // readback every N frames
+    bool            readback_ready       = false;
+
+    bool initReadbackBuffer(VkDeviceSize size);
+    void destroyReadbackBuffer();
+    void requestReadback(VkCommandBuffer cmd, VkBuffer source_buffer, VkDeviceSize size);
+    bool getReadbackData(float* out_tensor, uint32_t max_components);
 };
 
 extern VulkanContext vk_ctx;

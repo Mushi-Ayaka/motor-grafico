@@ -669,6 +669,9 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
         // T-102: Also copy to viewport image for ImGui::Image
         copyOutputToViewport(compute_command_buffer, scene_data.output_buffer.buffer, render_w, render_h);
 
+        // T-118: Request readback of output buffer (throttled)
+        requestReadback(compute_command_buffer, scene_data.output_buffer.buffer, render_w * render_h * 4);
+
         // Transfer to Present / ImGui-Attachment Layout
         VkImageMemoryBarrier barrierToPresent = barrierToTransfer;
         barrierToPresent.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -917,6 +920,123 @@ void VulkanContext::copyOutputToViewport(VkCommandBuffer cmd, VkBuffer output_bu
     toRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
         0, 0, nullptr, 0, nullptr, 1, &toRead);
+}
+
+// ============================================================================
+// Readback/Staging Buffer (T-118) — GPU→CPU tensor readback
+// ============================================================================
+
+bool VulkanContext::initReadbackBuffer(VkDeviceSize size) {
+    destroyReadbackBuffer();
+
+    VkBufferCreateInfo bufInfo{};
+    bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufInfo.size = size;
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+    if (vmaCreateBuffer(allocator, &bufInfo, &allocInfo, &readback_buffer, &readback_alloc, nullptr) != VK_SUCCESS) {
+        std::cerr << "[VK] Failed to create readback buffer" << std::endl;
+        return false;
+    }
+
+    // Map the buffer for CPU access
+    vmaMapMemory(allocator, readback_alloc, &readback_mapped);
+    readback_ready = true;
+    std::cerr << "[VK] Readback buffer: " << size << " bytes" << std::endl;
+    return true;
+}
+
+void VulkanContext::destroyReadbackBuffer() {
+    if (readback_mapped) {
+        vmaUnmapMemory(allocator, readback_alloc);
+        readback_mapped = nullptr;
+    }
+    if (readback_buffer) {
+        vmaDestroyBuffer(allocator, readback_buffer, readback_alloc);
+        readback_buffer = VK_NULL_HANDLE;
+        readback_alloc = VK_NULL_HANDLE;
+    }
+    readback_ready = false;
+}
+
+void VulkanContext::requestReadback(VkCommandBuffer cmd, VkBuffer source_buffer, VkDeviceSize size) {
+    if (!readback_ready) {
+        // Lazy init: 8 floats * 1024 nodes max
+        initReadbackBuffer(8 * 1024 * sizeof(float));
+    }
+
+    readback_frame_count++;
+    if (readback_frame_count < readback_throttle) return;
+
+    // Reset counter
+    readback_frame_count = 0;
+
+    // Barrier: source buffer → TRANSFER_SRC
+    VkBufferMemoryBarrier srcBarrier{};
+    srcBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    srcBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    srcBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    srcBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    srcBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    srcBarrier.buffer = source_buffer;
+    srcBarrier.offset = 0;
+    srcBarrier.size = size;
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0, 0, nullptr, 1, &srcBarrier, 0, nullptr);
+
+    // Barrier: readback buffer → TRANSFER_DST
+    VkBufferMemoryBarrier dstBarrier{};
+    dstBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    dstBarrier.srcAccessMask = 0;
+    dstBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    dstBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    dstBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    dstBarrier.buffer = readback_buffer;
+    dstBarrier.offset = 0;
+    dstBarrier.size = size;
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0, 0, nullptr, 1, &dstBarrier, 0, nullptr);
+
+    // Copy
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = size;
+    vkCmdCopyBuffer(cmd, source_buffer, readback_buffer, 1, &copyRegion);
+
+    // Barrier: readback buffer → HOST_READ
+    VkBufferMemoryBarrier hostBarrier{};
+    hostBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    hostBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    hostBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+    hostBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    hostBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    hostBarrier.buffer = readback_buffer;
+    hostBarrier.offset = 0;
+    hostBarrier.size = size;
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT,
+        0, 0, nullptr, 1, &hostBarrier, 0, nullptr);
+}
+
+bool VulkanContext::getReadbackData(float* out_tensor, uint32_t max_components) {
+    if (!readback_ready || !readback_mapped) return false;
+
+    // Invalidate if HOST_CACHED
+    vmaInvalidateAllocation(allocator, readback_alloc, 0, VK_WHOLE_SIZE);
+
+    float* data = (float*)readback_mapped;
+    uint32_t count = (max_components > 8) ? 8 : max_components;
+    for (uint32_t i = 0; i < count; i++) {
+        out_tensor[i] = data[i];
+    }
+    return true;
 }
 
 } // namespace mg

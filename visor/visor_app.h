@@ -14,6 +14,11 @@
 #include "gizmos_panel.h"
 #include "tensor_inspector.h"
 #include "undo_redo.h"
+#include "source_browser.h"
+#include "export_dialog.h"
+#include "command_palette.h"
+#include "viewport_manager.h"
+#include "../scene/project.h"
 #include "../scene/workspace.h"
 
 namespace mg {
@@ -49,6 +54,21 @@ struct VisorApp {
 
     // --- T-112: Tensor Inspector panel ---
     TensorInspector tensor_inspector;
+
+    // --- T-114: Project save/load ---
+    scene::Project project;
+    std::wstring   project_path;     // current .mgproj path
+    bool           project_dirty = false;
+
+    // --- T-117: Source Browser + Export ---
+    SourceBrowser  source_browser;
+    ExportDialog   export_dialog;
+
+    // --- T-119: Command Palette ---
+    CommandPalette command_palette;
+
+    // --- T-120: Multi-viewport ---
+    ViewportManager viewport_mgr;
 
     // --- T-115: Undo/Redo ---
     UndoRedo    undo_redo;

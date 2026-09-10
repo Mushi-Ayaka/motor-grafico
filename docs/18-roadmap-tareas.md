@@ -66,7 +66,12 @@ Ejecutar T-F5, T-F6 y T-F1.1/T-F1.2 en paralelo (son independientes entre sí).
 
 | ID | Módulo | Tarea | Depende |
 |----|--------|-------|---------|
-| **T-112** | M29 | Tensor Inspector (tensor 1×8, history plots, anomaly detection) | **✅ DONE** (Readback/Staging para v2) |
+| **T-112** | M29 | Tensor Inspector (tensor 1×8, history plots, anomaly detection) | **✅ DONE** |
+| **T-114** | M25 | .mgproj Save/Load JSON (schema_version, autosave, crash recovery) | **✅ DONE** |
+| **T-117** | M24 | Source Browser + Export (árbol archivos, export Windows .exe) | **✅ DONE** |
+| **T-118** | M29 | Readback/Staging GPU→CPU (VkBuffer, throttle 30 frames) | **✅ DONE** |
+| **T-119** | M5 | Command Palette (Ctrl+K, fuzzy search, 25+ comandos) | **✅ DONE** |
+| **T-120** | M4 | Multi-viewport (tabs ilimitados, modo Render/IR/Tensor) | **✅ DONE** |
 | **T-113** | M10/M26 | Scene Validation estática + Console/Log panel | **✅ DONE** |
 | **T-115** | M28 | Undo/Redo por diffs de AST (snapshot-based, Ctrl+Z/Y) | **✅ DONE** |
 | T-118 | M22 | W-Scrubber (timeline W) | T-103. |
