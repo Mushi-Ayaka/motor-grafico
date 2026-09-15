@@ -164,7 +164,7 @@ bool VisorApp::init(HINSTANCE hInst, const wchar_t* initial_scene) {
     editor_status = "Listo. Edita y pulsa Compile (Ctrl+S).";
 
     // T-115: Undo/Redo init
-    undo_redo.saveState(editor_source);
+    undo_redo.executeCommand(std::make_shared<TextEditCommand>(editor_source, "", editor_source, "Initial state"));
 
     // T-113: Console panel init
     console.addLog(LogEntry::Level::INFO, "Motor Grafico initialized");
@@ -435,23 +435,19 @@ void VisorApp::run() {
         if (ctrl) {
             if (GetAsyncKeyState('Z') & 0x8000) {
                 if (!undo_redo_held) {
-                    std::string src;
-                    if (undo_redo.undo(src)) {
-                        editor_source = src;
-                        herm_editor.source = src;
+                    if (undo_redo.undo()) {
+                        herm_editor.source = editor_source;
                         herm_editor.reloadFromSource();
-                        console.addLog(LogEntry::Level::INFO, "Undo: %zu chars", src.size());
+                        console.addLog(LogEntry::Level::INFO, "Undo: %s", undo_redo.undoDescription().c_str());
                     }
                     undo_redo_held = true;
                 }
             } else if (GetAsyncKeyState('Y') & 0x8000) {
                 if (!undo_redo_held) {
-                    std::string src;
-                    if (undo_redo.redo(src)) {
-                        editor_source = src;
-                        herm_editor.source = src;
+                    if (undo_redo.redo()) {
+                        herm_editor.source = editor_source;
                         herm_editor.reloadFromSource();
-                        console.addLog(LogEntry::Level::INFO, "Redo: %zu chars", src.size());
+                        console.addLog(LogEntry::Level::INFO, "Redo: %s", undo_redo.redoDescription().c_str());
                     }
                     undo_redo_held = true;
                 }
@@ -691,7 +687,7 @@ void VisorApp::drawEditorUI() {
                 herm_editor.initDefault();
                 editor_source = herm_editor.source;
                 undo_redo.clear();
-                undo_redo.saveState(editor_source);
+                undo_redo.executeCommand(std::make_shared<TextEditCommand>(editor_source, "", editor_source, "New project"));
                 project.setDefault();
                 project_path.clear();
                 project_dirty = false;
@@ -727,7 +723,7 @@ void VisorApp::drawEditorUI() {
                             console.auto_scroll = project.auto_scroll;
                             console.filter_level = project.console_filter;
                             undo_redo.clear();
-                            undo_redo.saveState(editor_source);
+                            undo_redo.executeCommand(std::make_shared<TextEditCommand>(editor_source, "", editor_source, "Load project"));
                             dirty = true;
                             title_dirty = true;
                             console.addLog(LogEntry::Level::INFO, "Project loaded: %s", filename);
@@ -752,7 +748,7 @@ void VisorApp::drawEditorUI() {
                     herm_editor.openFile(filename);
                     editor_source = herm_editor.source;
                     undo_redo.clear();
-                    undo_redo.saveState(editor_source);
+                    undo_redo.executeCommand(std::make_shared<TextEditCommand>(editor_source, "", editor_source, "Open .herm file"));
                     // Add to project sources
                     project.sources.clear();
                     int wlen = MultiByteToWideChar(CP_UTF8, 0, filename, -1, nullptr, 0);
@@ -867,11 +863,11 @@ void VisorApp::drawEditorUI() {
         if (ImGui::BeginMenu("Edit")) {
             if (ImGui::MenuItem("Undo", "Ctrl+Z")) {
                 std::string src;
-                if (undo_redo.undo(src)) { editor_source = src; herm_editor.source = src; herm_editor.reloadFromSource(); }
+                if (undo_redo.undo()) { herm_editor.source = editor_source; herm_editor.reloadFromSource(); }
             }
             if (ImGui::MenuItem("Redo", "Ctrl+Y")) {
                 std::string src;
-                if (undo_redo.redo(src)) { editor_source = src; herm_editor.source = src; herm_editor.reloadFromSource(); }
+                if (undo_redo.redo()) { herm_editor.source = editor_source; herm_editor.reloadFromSource(); }
             }
             ImGui::EndMenu();
         }
@@ -1058,7 +1054,9 @@ void VisorApp::drawEditorUI() {
                     app->editor_status = s;
                     app->dirty = true;
                     app->title_dirty = true;
-                    app->undo_redo.saveState(src);
+                    std::string old_src = app->editor_source;
+                    app->editor_source = src;
+                    app->undo_redo.executeCommand(std::make_shared<TextEditCommand>(app->editor_source, old_src, src, "Compile .herm (ONT)"));
                     return true;
                 }
                 return false;
@@ -1086,7 +1084,9 @@ void VisorApp::drawEditorUI() {
                     app->editor_status = s;
                     app->dirty = true;
                     app->title_dirty = true;
-                    app->undo_redo.saveState(src);
+                    std::string old_src = app->editor_source;
+                    app->editor_source = src;
+                    app->undo_redo.executeCommand(std::make_shared<TextEditCommand>(app->editor_source, old_src, src, "Compile .herm (CPU)"));
                     return true;
                 }
                 return false;
@@ -1106,6 +1106,9 @@ void VisorApp::drawEditorUI() {
 
     // --- T-116: Profiler panel ---
     profiler.draw();
+
+    // --- S2.8: Timeline UI ---
+    timeline_panel.draw(workspace.timeline);
 
     // --- T-103: Ontology Tree panel ---
     ontology.draw(scene_mgr.graph, renderer.scene);

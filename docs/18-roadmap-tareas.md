@@ -112,6 +112,16 @@ T-301 SDF-UI (M35) · T-302 ray-SDF 2D · T-303 bridges C hot-reload · T-304 ex
 | S1-4 | Readback GPU→CPU + Tensor Buffer | `vulkan_pipeline.h/cpp`, tensor_buffer, staging[2], copy barriers | **✅ DONE** |
 | S1-5 | Input Bus Real + Systems v1 | `input_bus.h`, `core/systems.h/cpp`, CameraSystem slot 0 | **✅ DONE** |
 
+## 8. Sprint 2 — Anomaly Gate, Thread-Safety, Timeline, Gizmos, Undo/Redo
+
+| ID | Tarea | Archivos | Estado |
+|----|-------|----------|--------|
+| S2.6 | Anomaly Gate completa | `anomaly_gate.h/cpp`, validateTensorSlots, bytecode scan | **✅ DONE** |
+| S2.7 | Thread-Safety | `herm_render.cpp`, fix 2 static Material data races | **✅ DONE** |
+| S2.8 | Timeline UI (W-Scrubber + Play) | `timeline_panel.h/cpp`, transport controls, W slider | **✅ DONE** |
+| S2.9 | Gizmos ROTATE/SCALE | `gizmos_panel.h/cpp`, arc handles, cube handles, camera.h fov | **✅ DONE** |
+| S2.10 | Undo/Redo Command Pattern | `undo_redo.h/cpp`, TextEditCommand, TransformCommand | **✅ DONE** |
+
 ## 6. Correcciones a los docs (al ejecutar)
 - **T-D1**: en `17c` §1, `core/scene_graph.h` → `scene/scene_graph.h`; `render/vulkan/` no existe (es `render/vulkan_core.cpp` / `render/vulkan_pipeline.cpp`).
 - **T-D2**: en `17c` §11, los 130 MB son del renderer SDF (manifiesto `motor gráfico.txt`), no de GTE→TB.

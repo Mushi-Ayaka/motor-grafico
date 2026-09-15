@@ -179,7 +179,7 @@ std::vector<Anomaly> AnomalyGate::validateBytecode(const uint8_t* bc, uint32_t s
         return anomalies;
     }
 
-    // Scan bytecode for basic integrity
+    // Scan bytecode for basic integrity + NaN/Inf
     uint32_t i = 0;
     while (i < size) {
         uint8_t op = bc[i];
@@ -210,7 +210,42 @@ std::vector<Anomaly> AnomalyGate::validateBytecode(const uint8_t* bc, uint32_t s
             continue;
         }
 
+        // Opcodes that take a 4-byte float operand (operations)
+        if (op >= 0x10 && op <= 0x1D) { // ONT_ADD..ONT_SMOOTH_MIN
+            if (i + 5 > size) {
+                Anomaly a;
+                a.severity = Anomaly::Severity::SEV_ERROR;
+                a.message = "opcode " + std::to_string(op) + " truncado en offset " + std::to_string(i);
+                anomalies.push_back(a);
+                break;
+            }
+            i += 5;
+            continue;
+        }
+
         i++;
+    }
+
+    return anomalies;
+}
+
+std::vector<Anomaly> AnomalyGate::validateTensorSlots(uint32_t node_count) {
+    std::vector<Anomaly> anomalies;
+    uint32_t total_slots = node_count + 1; // +1 for camera slot 0
+
+    if (total_slots > ANOMALY_MAX_TENSOR_SLOTS) {
+        Anomaly a;
+        a.severity = Anomaly::Severity::SEV_ERROR;
+        a.message = "tensor_slot_count (" + std::to_string(total_slots) +
+                    ") excede MAX_TENSOR_SLOTS (" + std::to_string(ANOMALY_MAX_TENSOR_SLOTS) + ")";
+        anomalies.push_back(a);
+    }
+
+    if (node_count == 0) {
+        Anomaly a;
+        a.severity = Anomaly::Severity::SEV_WARNING;
+        a.message = "escena sin nodos (solo camera slot 0)";
+        anomalies.push_back(a);
     }
 
     return anomalies;

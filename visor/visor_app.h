@@ -18,6 +18,7 @@
 #include "export_dialog.h"
 #include "command_palette.h"
 #include "viewport_manager.h"
+#include "timeline_panel.h"
 #include "../scene/project.h"
 #include "../scene/workspace.h"
 #include "../core/fixed_timestep.h"
@@ -70,6 +71,9 @@ struct VisorApp {
 
     // --- T-120: Multi-viewport ---
     ViewportManager viewport_mgr;
+
+    // --- S2.8: Timeline UI ---
+    TimelinePanel timeline_panel;
 
     // --- T-115: Undo/Redo ---
     UndoRedo    undo_redo;

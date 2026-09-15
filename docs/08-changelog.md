@@ -2,6 +2,34 @@
 
 > **Vida del proyecto:** 4 de junio → 17 de junio de 2026 (v0.15–v0.26)
 
+## 2026-09-15 — Sprint 2: Anomaly Gate, Thread-Safety, Timeline, Gizmos, Undo/Redo
+
+### S2.6: Anomaly Gate completa
+- `visor/anomaly_gate.h`: ANOMALY_MAX_TENSOR_SLOTS=65536, validateTensorSlots()
+- `visor/anomaly_gate.cpp`: validateTensorSlots() para node_count, bytecode scan mejorado (opcodes 0x10-0x1D)
+
+### S2.7: Thread-Safety
+- `deps/lenguaje-hermetico/herm/herm_render.cpp`: Fix 2 data races (static Material → stack-local)
+- Compiler pipeline ahora es completamente reentrante y thread-safe
+
+### S2.8: Timeline UI (W-Scrubber + Play)
+- `visor/timeline_panel.h/cpp`: Panel con transport controls (rewind/play/stop), loop toggle, speed slider, FPS input, W-Scrubber slider, frame range inputs
+- `visor/visor_app.h`: TimelinePanel member
+- `visor/visor_app.cpp`: Integración en UI loop
+
+### S2.9: Gizmos ROTATE/SCALE
+- `scene/camera.h`: fov field en CameraController (60.0f default)
+- `visor/gizmos_panel.h`: drawRotateGizmo(), drawScaleGizmo(), drag_start_value
+- `visor/gizmos_panel.cpp`: 
+  - Rotate: 3 arc handles (X=red horizontal ellipse, Y=green vertical ellipse, Z=blue circle)
+  - Scale: 3 cube handles (X=red, Y=green, Z=blue)
+  - handleDrag: MOVE/ROTATE/SCALE modes con snap support
+
+### S2.10: Undo/Redo Command Pattern
+- `visor/undo_redo.h`: UndoRedoCommand base, TextEditCommand, TransformCommand
+- `visor/undo_redo.cpp`: executeCommand(), undo(), redo(), undoDescription(), redoDescription()
+- `visor/visor_app.cpp`: Todas las llamadas actualizadas al nuevo API
+
 ## 2026-09-15 — Sprint 0 + Sprint 1: Builder Spec v2.4 Implementation
 
 ### Sprint 0: Specs (5 documents)

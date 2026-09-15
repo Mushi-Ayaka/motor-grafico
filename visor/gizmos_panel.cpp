@@ -64,6 +64,49 @@ void GizmosPanel::drawMoveGizmo(ImDrawList* dl, float cx, float cy, float scale)
                           IM_COL32(50, 50, 255, 200));
 }
 
+void GizmosPanel::drawRotateGizmo(ImDrawList* dl, float cx, float cy, float scale) {
+    float radius = 30.0f * scale;
+    float thickness = 2.0f;
+
+    // X axis rotation arc (red) - horizontal ellipse
+    dl->AddEllipse(ImVec2(cx, cy), ImVec2(radius, radius * 0.3f), IM_COL32(255, 50, 50, 200), 0, thickness);
+
+    // Y axis rotation arc (green) - vertical ellipse
+    dl->AddEllipse(ImVec2(cx, cy), ImVec2(radius * 0.3f, radius), IM_COL32(50, 255, 50, 200), 0, thickness);
+
+    // Z axis rotation arc (blue) - circle
+    dl->AddCircle(ImVec2(cx, cy), radius, IM_COL32(50, 50, 255, 200), 32, thickness);
+
+    // Center dot
+    dl->AddCircleFilled(ImVec2(cx, cy), 3.0f * scale, IM_COL32(255, 255, 255, 200));
+}
+
+void GizmosPanel::drawScaleGizmo(ImDrawList* dl, float cx, float cy, float scale) {
+    float line_len = 40.0f * scale;
+    float box_size = 6.0f * scale;
+
+    // X axis (red)
+    dl->AddLine(ImVec2(cx, cy), ImVec2(cx + line_len, cy), IM_COL32(255, 50, 50, 200), 2.0f);
+    dl->AddRectFilled(ImVec2(cx + line_len - box_size, cy - box_size),
+                      ImVec2(cx + line_len + box_size, cy + box_size),
+                      IM_COL32(255, 50, 50, 200));
+
+    // Y axis (green)
+    dl->AddLine(ImVec2(cx, cy), ImVec2(cx, cy - line_len), IM_COL32(50, 255, 50, 200), 2.0f);
+    dl->AddRectFilled(ImVec2(cx - box_size, cy - line_len - box_size),
+                      ImVec2(cx + box_size, cy - line_len + box_size),
+                      IM_COL32(50, 255, 50, 200));
+
+    // Z axis (blue)
+    dl->AddLine(ImVec2(cx, cy), ImVec2(cx + line_len * 0.7f, cy + line_len * 0.5f), IM_COL32(50, 50, 255, 200), 2.0f);
+    dl->AddRectFilled(ImVec2(cx + line_len * 0.7f - box_size, cy + line_len * 0.5f - box_size),
+                      ImVec2(cx + line_len * 0.7f + box_size, cy + line_len * 0.5f + box_size),
+                      IM_COL32(50, 50, 255, 200));
+
+    // Center dot
+    dl->AddCircleFilled(ImVec2(cx, cy), 3.0f * scale, IM_COL32(255, 255, 255, 200));
+}
+
 void GizmosPanel::handleDrag(scene::SceneNode& sn, Node& rn, int axis, float dx, float dy) {
     float speed = 0.01f;
     float delta = (dx + dy) * speed;
@@ -72,20 +115,76 @@ void GizmosPanel::handleDrag(scene::SceneNode& sn, Node& rn, int axis, float dx,
         delta = std::round(delta / snap_value) * snap_value;
     }
 
-    switch (axis) {
-        case 0: // X
-            sn.local_translate.x += delta;
-            rn.translate.x += delta;
+    switch (mode) {
+        case GizmoMode::MOVE:
+            switch (axis) {
+                case 0: // X
+                    sn.local_translate.x += delta;
+                    rn.translate.x += delta;
+                    break;
+                case 1: // Y
+                    sn.local_translate.y -= delta;
+                    rn.translate.y -= delta;
+                    break;
+                case 2: // Z
+                    sn.local_translate.z += delta;
+                    rn.translate.z += delta;
+                    break;
+            }
             break;
-        case 1: // Y
-            sn.local_translate.y -= delta;
-            rn.translate.y -= delta;
+
+        case GizmoMode::ROTATE:
+            {
+                float rot_speed = 0.005f;
+                float rot_delta = (dx + dy) * rot_speed;
+                if (snap_enabled) {
+                    rot_delta = std::round(rot_delta / snap_value) * snap_value;
+                }
+                switch (axis) {
+                    case 0: // X rotation
+                        sn.local_rotate.x += rot_delta;
+                        rn.rotate.x += rot_delta;
+                        break;
+                    case 1: // Y rotation
+                        sn.local_rotate.y += rot_delta;
+                        rn.rotate.y += rot_delta;
+                        break;
+                    case 2: // Z rotation
+                        sn.local_rotate.z += rot_delta;
+                        rn.rotate.z += rot_delta;
+                        break;
+                }
+            }
             break;
-        case 2: // Z
-            sn.local_translate.z += delta;
-            rn.translate.z += delta;
+
+        case GizmoMode::SCALE:
+            {
+                float scale_speed = 0.002f;
+                float scale_delta = 1.0f + (dx + dy) * scale_speed;
+                if (snap_enabled) {
+                    scale_delta = std::round(scale_delta / snap_value) * snap_value;
+                }
+                switch (axis) {
+                    case 0: // X scale
+                        sn.local_scale.x *= scale_delta;
+                        rn.scale.x *= scale_delta;
+                        break;
+                    case 1: // Y scale
+                        sn.local_scale.y *= scale_delta;
+                        rn.scale.y *= scale_delta;
+                        break;
+                    case 2: // Z scale
+                        sn.local_scale.z *= scale_delta;
+                        rn.scale.z *= scale_delta;
+                        break;
+                }
+            }
+            break;
+
+        default:
             break;
     }
+
     sn.transform_dirty = true;
     sn.aabb_dirty = true;
 }
@@ -120,13 +219,9 @@ void GizmosPanel::draw(OntologyPanel& ontology, scene::SceneGraph& graph,
     if (mode == GizmoMode::MOVE) {
         drawMoveGizmo(dl, sx, sy, scale);
     } else if (mode == GizmoMode::ROTATE) {
-        // Simple circle gizmo
-        float radius = 30.0f * scale;
-        dl->AddCircle(ImVec2(sx, sy), radius, IM_COL32(255, 255, 100, 200), 32, 2.0f);
+        drawRotateGizmo(dl, sx, sy, scale);
     } else if (mode == GizmoMode::SCALE) {
-        // Simple box gizmo
-        float sz = 8.0f * scale;
-        dl->AddRect(ImVec2(sx - sz, sy - sz), ImVec2(sx + sz, sy + sz), IM_COL32(255, 150, 50, 200), 0, 0, 2.0f);
+        drawScaleGizmo(dl, sx, sy, scale);
     }
 
     // Handle mouse interaction
@@ -150,6 +245,52 @@ void GizmosPanel::draw(OntologyPanel& ontology, scene::SceneGraph& graph,
         }
         // Z axis check (diagonal)
         else if (mdist < axis_threshold) {
+            hovered_axis = 2;
+        }
+
+        // Start drag
+        if (hovered_axis >= 0 && ImGui::IsMouseClicked(0) && !dragging) {
+            dragging = true;
+            active_axis = hovered_axis;
+            drag_start[0] = mouse_pos.x;
+            drag_start[1] = mouse_pos.y;
+        }
+    } else if (mode == GizmoMode::ROTATE) {
+        // Check if near rotation arc
+        float arc_threshold = 20.0f * scale;
+        int hovered_axis = -1;
+
+        // Simple proximity check to circle
+        if (mdist < arc_threshold) {
+            hovered_axis = 2; // Z axis (circle)
+        } else if (std::abs(mdy) < arc_threshold && mdx > 0) {
+            hovered_axis = 0; // X axis (horizontal ellipse)
+        } else if (std::abs(mdx) < arc_threshold && mdy < 0) {
+            hovered_axis = 1; // Y axis (vertical ellipse)
+        }
+
+        // Start drag
+        if (hovered_axis >= 0 && ImGui::IsMouseClicked(0) && !dragging) {
+            dragging = true;
+            active_axis = hovered_axis;
+            drag_start[0] = mouse_pos.x;
+            drag_start[1] = mouse_pos.y;
+        }
+    } else if (mode == GizmoMode::SCALE) {
+        // Check if near scale handle
+        float handle_threshold = 15.0f * scale;
+        int hovered_axis = -1;
+
+        // X axis check
+        if (std::abs(mdy) < handle_threshold && mdx > 0 && mdx < 50.0f * scale) {
+            hovered_axis = 0;
+        }
+        // Y axis check
+        else if (std::abs(mdx) < handle_threshold && mdy < 0 && -mdy < 50.0f * scale) {
+            hovered_axis = 1;
+        }
+        // Z axis check
+        else if (mdist < handle_threshold) {
             hovered_axis = 2;
         }
 

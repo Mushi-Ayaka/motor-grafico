@@ -2,20 +2,17 @@
 
 namespace mg {
 
-void UndoRedo::saveState(const std::string& source) {
+void UndoRedo::executeCommand(std::shared_ptr<UndoRedoCommand> cmd) {
     // If we're not at the end of history, truncate future states
     if (current_index >= 0 && current_index < (int)history.size() - 1) {
         history.erase(history.begin() + current_index + 1, history.end());
     }
 
-    // Don't save if same as current
-    if (current_index >= 0 && current_index < (int)history.size()) {
-        if (history[current_index] == source)
-            return;
-    }
+    // Execute the command
+    cmd->execute();
 
-    // Add new state
-    history.push_back(source);
+    // Add to history
+    history.push_back(cmd);
     current_index = (int)history.size() - 1;
 
     // Trim if too large
@@ -26,19 +23,19 @@ void UndoRedo::saveState(const std::string& source) {
     }
 }
 
-bool UndoRedo::undo(std::string& out_source) {
+bool UndoRedo::undo() {
     if (!canUndo()) return false;
 
+    history[current_index]->undo();
     current_index--;
-    out_source = history[current_index];
     return true;
 }
 
-bool UndoRedo::redo(std::string& out_source) {
+bool UndoRedo::redo() {
     if (!canRedo()) return false;
 
     current_index++;
-    out_source = history[current_index];
+    history[current_index]->execute();
     return true;
 }
 
@@ -48,7 +45,7 @@ void UndoRedo::clear() {
 }
 
 bool UndoRedo::canUndo() const {
-    return current_index > 0;
+    return current_index >= 0;
 }
 
 bool UndoRedo::canRedo() const {
@@ -56,12 +53,22 @@ bool UndoRedo::canRedo() const {
 }
 
 int UndoRedo::undoCount() const {
-    return canUndo() ? current_index : 0;
+    return canUndo() ? current_index + 1 : 0;
 }
 
 int UndoRedo::redoCount() const {
     if (current_index < 0) return 0;
     return (int)history.size() - 1 - current_index;
+}
+
+std::string UndoRedo::undoDescription() const {
+    if (!canUndo()) return "";
+    return history[current_index]->description();
+}
+
+std::string UndoRedo::redoDescription() const {
+    if (!canRedo()) return "";
+    return history[current_index + 1]->description();
 }
 
 } // namespace mg

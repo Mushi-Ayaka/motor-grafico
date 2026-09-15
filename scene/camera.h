@@ -38,6 +38,9 @@ struct CameraController {
     f32   target_distance  = 5.0f;
     f32   zoom_smooth_speed = 8.0f;
 
+    // FOV
+    f32   fov              = 60.0f;   // degrees
+
     // Follow mode
     u32   follow_target    = 0xFFFFFFFF;
     Vec3  follow_offset    = {0, 2, 5};

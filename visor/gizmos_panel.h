@@ -26,6 +26,7 @@ public:
     bool dragging = false;
     int active_axis = -1; // 0=X, 1=Y, 2=Z
     float drag_start[3] = {0, 0, 0};
+    float drag_start_value = 0.0f;
 
     void draw(OntologyPanel& ontology, scene::SceneGraph& graph,
               Scene& scene, scene::CameraController& cam,
@@ -35,6 +36,8 @@ private:
     bool worldToScreen(Vec3 world, Vec3 cam_pos, Vec3 cam_tgt,
                        uint32_t vw, uint32_t vh, float& sx, float& sy);
     void drawMoveGizmo(ImDrawList* dl, float cx, float cy, float scale);
+    void drawRotateGizmo(ImDrawList* dl, float cx, float cy, float scale);
+    void drawScaleGizmo(ImDrawList* dl, float cx, float cy, float scale);
     void handleDrag(scene::SceneNode& sn, Node& rn, int axis, float dx, float dy);
 };
 
