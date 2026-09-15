@@ -48,6 +48,19 @@ bool VulkanSceneData::createDeviceBuffer(const void* data, VkDeviceSize size, Bu
     return true;
 }
 
+bool VulkanSceneData::createHostBuffer(VkDeviceSize size, BufferAllocation& outBuffer) {
+    if (size == 0) return true;
+
+    if (!vk_ctx.createBuffer(size,
+                             VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                             VMA_MEMORY_USAGE_CPU_ONLY,
+                             outBuffer.buffer, outBuffer.allocation)) {
+        return false;
+    }
+    outBuffer.size = size;
+    return true;
+}
+
 bool VulkanSceneData::init(const OntScene& scene) {
     if (!scene.header) return false;
 
@@ -77,12 +90,31 @@ bool VulkanSceneData::init(const OntScene& scene) {
     }
     output_buffer.size = outSize;
 
-    // 4. Create Layout del Descriptor Set (4 bindings: BVH, Materials, UBO, Output)
+    // 4. Create Tensor Buffer (STORAGE, binding 4)
+    tensor_slot_count = scene.header->node_count + 1; // +1 for camera slot 0
+    VkDeviceSize tensorSize = tensor_slot_count * 8 * sizeof(float);
+    if (!vk_ctx.createBuffer(tensorSize,
+                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VMA_MEMORY_USAGE_GPU_ONLY,
+                             tensor_buffer.buffer, tensor_buffer.allocation)) {
+        return false;
+    }
+    tensor_buffer.size = tensorSize;
+
+    // 5. Create Tensor Staging Buffers (HOST_VISIBLE, double buffer)
+    if (!createHostBuffer(tensorSize, tensor_staging[0])) return false;
+    if (!createHostBuffer(tensorSize, tensor_staging[1])) return false;
+
+    // 6. Create Output Staging Buffer (HOST_VISIBLE, for determinism test)
+    if (!createHostBuffer(outSize, output_staging)) return false;
+
+    // 7. Create Layout del Descriptor Set (5 bindings: BVH, Materials, UBO, Output, Tensor)
     std::vector<VkDescriptorSetLayoutBinding> bindings = {
         {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // BVH
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // Materials
         {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // UBO
-        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // Output Pixels
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // Output Pixels
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // Tensor Buffer
     };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -94,9 +126,9 @@ bool VulkanSceneData::init(const OntScene& scene) {
         return false;
     }
 
-    // 5. Create Pool
+    // 8. Create Pool
     std::vector<VkDescriptorPoolSize> poolSizes = {
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}
     };
 
@@ -110,7 +142,7 @@ bool VulkanSceneData::init(const OntScene& scene) {
         return false;
     }
 
-    // 6. Allocate Descriptor Set
+    // 9. Allocate Descriptor Set
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = descriptor_pool;
@@ -121,14 +153,15 @@ bool VulkanSceneData::init(const OntScene& scene) {
         return false;
     }
 
-    // 7. Update Descriptor Set (link buffers)
+    // 10. Update Descriptor Set (link buffers)
     VkDescriptorBufferInfo bvhInfo{bvh_buffer.buffer, 0, bvh_buffer.size};
     VkDescriptorBufferInfo matInfo{material_buffer.buffer, 0, material_buffer.size};
     VkDescriptorBufferInfo uboInfo{ubo_buffer.buffer, 0, ubo_buffer.size};
     VkDescriptorBufferInfo outInfo{output_buffer.buffer, 0, output_buffer.size};
+    VkDescriptorBufferInfo tensorInfo{tensor_buffer.buffer, 0, tensor_buffer.size};
 
-    std::vector<VkWriteDescriptorSet> descriptorWrites(4);
-    for (int i = 0; i < 4; i++) {
+    std::vector<VkWriteDescriptorSet> descriptorWrites(5);
+    for (int i = 0; i < 5; i++) {
         descriptorWrites[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[i].dstSet = descriptor_set;
         descriptorWrites[i].dstBinding = i;
@@ -141,6 +174,7 @@ bool VulkanSceneData::init(const OntScene& scene) {
     descriptorWrites[1].pBufferInfo = &matInfo;
     descriptorWrites[2].pBufferInfo = &uboInfo;
     descriptorWrites[3].pBufferInfo = &outInfo;
+    descriptorWrites[4].pBufferInfo = &tensorInfo;
 
     vkUpdateDescriptorSets(vk_ctx.device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
@@ -292,6 +326,43 @@ void VulkanSceneData::recordComputeCommandBuffer(VkCommandBuffer cmd, uint32_t w
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
     vkCmdDispatch(cmd, (width + 7) / 8, (height + 7) / 8, 1);
+
+    // Pipeline barrier: compute shader -> transfer
+    VkMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0, 1, &barrier, 0, nullptr, 0, nullptr);
+
+    // Copy tensor_buffer -> tensor_staging[tensor_staging_index]
+    VkBufferCopy tensorCopy{};
+    tensorCopy.srcOffset = 0;
+    tensorCopy.dstOffset = 0;
+    tensorCopy.size = tensor_buffer.size;
+    vkCmdCopyBuffer(cmd, tensor_buffer.buffer, tensor_staging[tensor_staging_index].buffer, 1, &tensorCopy);
+
+    // Copy output_buffer -> output_staging
+    VkBufferCopy outputCopy{};
+    outputCopy.srcOffset = 0;
+    outputCopy.dstOffset = 0;
+    outputCopy.size = output_buffer.size;
+    vkCmdCopyBuffer(cmd, output_buffer.buffer, output_staging.buffer, 1, &outputCopy);
+
+    // Pipeline barrier: transfer -> host
+    VkMemoryBarrier barrier2{};
+    barrier2.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier2.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        0, 1, &barrier2, 0, nullptr, 0, nullptr);
+
+    // Alternate staging index
+    tensor_staging_index = (tensor_staging_index + 1) % 2;
 }
 
 void VulkanSceneData::updateUBO(const UboData& ubo) {
@@ -347,6 +418,10 @@ void VulkanSceneData::cleanup() {
     material_buffer.cleanup();
     ubo_buffer.cleanup();
     output_buffer.cleanup();
+    tensor_buffer.cleanup();
+    tensor_staging[0].cleanup();
+    tensor_staging[1].cleanup();
+    output_staging.cleanup();
 
     if (compute_pipeline) {
         vkDestroyPipeline(vk_ctx.device, compute_pipeline, nullptr);
@@ -369,6 +444,21 @@ void VulkanSceneData::cleanup() {
         vkDestroyDescriptorSetLayout(vk_ctx.device, descriptor_set_layout, nullptr);
         descriptor_set_layout = VK_NULL_HANDLE;
     }
+}
+
+const float* VulkanSceneData::getTensorStagingData() const {
+    uint32_t readIndex = (tensor_staging_index + 1) % 2;
+    if (!tensor_staging[readIndex].allocation) return nullptr;
+    void* data = nullptr;
+    vmaMapMemory(vk_ctx.allocator, tensor_staging[readIndex].allocation, &data);
+    return (const float*)data;
+}
+
+const float* VulkanSceneData::getOutputStagingData() const {
+    if (!output_staging.allocation) return nullptr;
+    void* data = nullptr;
+    vmaMapMemory(vk_ctx.allocator, output_staging.allocation, &data);
+    return (const float*)data;
 }
 
 } // namespace mg

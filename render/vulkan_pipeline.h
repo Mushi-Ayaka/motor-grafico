@@ -38,6 +38,11 @@ struct VulkanSceneData {
     BufferAllocation material_buffer;
     BufferAllocation ubo_buffer;
     BufferAllocation output_buffer;
+    BufferAllocation tensor_buffer;      // STORAGE_BUFFER, binding 4
+    BufferAllocation tensor_staging[2];  // HOST_VISIBLE | HOST_COHERENT, doble buffer
+    BufferAllocation output_staging;     // HOST_VISIBLE, para framebuffer RGBA (determinismo test)
+    uint32_t tensor_staging_index = 0;   // alterna 0/1 cada frame
+    uint32_t tensor_slot_count = 0;      // N_slots válidos
 
     VkDescriptorSetLayout descriptor_set_layout = VK_NULL_HANDLE;
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
@@ -57,8 +62,13 @@ struct VulkanSceneData {
     bool resizeOutputBuffer(uint32_t width, uint32_t height);
     void cleanup();
 
+    // Tensor buffer readback
+    const float* getTensorStagingData() const;
+    const float* getOutputStagingData() const;
+
 private:
     bool createDeviceBuffer(const void* data, VkDeviceSize size, BufferAllocation& outBuffer);
+    bool createHostBuffer(VkDeviceSize size, BufferAllocation& outBuffer);
 };
 
 } // namespace mg

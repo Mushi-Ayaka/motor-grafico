@@ -20,6 +20,7 @@
 #include "viewport_manager.h"
 #include "../scene/project.h"
 #include "../scene/workspace.h"
+#include "../core/fixed_timestep.h"
 
 namespace mg {
 
@@ -72,6 +73,9 @@ struct VisorApp {
 
     // --- T-115: Undo/Redo ---
     UndoRedo    undo_redo;
+
+    // --- FixedTimestep + ΔW ---
+    FixedTimestep fixed_ts;
 
     // --- T-111: Editor .herm + live-compile ---
     HermEditor  herm_editor;       // editor de codigo .herm

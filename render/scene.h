@@ -167,9 +167,10 @@ struct OntHeader {
     uint32_t bvh_count;
     uint32_t material_count;
     uint32_t bytecode_size;
+    uint32_t tensor_buffer_size;      // (N_nodos + 1) * 8 * 4 bytes (+1 = cámara slot 0)
     float    scene_aabb_min[4];
     float    scene_aabb_max[4];
-    uint64_t reserved[8];
+    uint64_t reserved[7] = {};        // MUST BE 0. Reservado para v2+.
 };
 
 struct OntBvhNode {
@@ -190,6 +191,7 @@ struct OntGraphNode {
     uint32_t bytecode_length;
     float    bbox_min[4];
     float    bbox_max[4];
+    uint32_t tensor_slot;             // índice en tensor_buffer (1..N) — por INSTANCIA
     uint8_t  mode;
     uint8_t  pad[3];
 };
@@ -201,7 +203,8 @@ struct OntMaterial {
     float    metallic;
     float    emission[3];
     float    opacity;
-    uint32_t reserved[4];
+    uint32_t tensor_slot;             // mismo slot que el nodo al que aplica
+    uint32_t reserved[3] = {};
 };
 
 // .obs — Observation (optional metadata alongside .ont)

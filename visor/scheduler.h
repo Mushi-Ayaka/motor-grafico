@@ -5,12 +5,15 @@
 
 namespace mg {
 
+static constexpr uint32_t MAX_TENSOR_SLOTS = 65536;
+
 struct CompileResult {
     bool ok = false;
     std::string error;
     uint32_t nodes = 0;
     uint32_t materials = 0;
     uint32_t bytecode_bytes = 0;
+    uint32_t tensor_slot_count = 0;  // N_nodes + 1 (camera slot 0)
 };
 
 using CompileFunc = std::function<CompileResult(const std::string& source)>;

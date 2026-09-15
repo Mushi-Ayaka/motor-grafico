@@ -2,6 +2,42 @@
 
 > **Vida del proyecto:** 4 de junio → 17 de junio de 2026 (v0.15–v0.26)
 
+## 2026-09-15 — Sprint 0 + Sprint 1: Builder Spec v2.4 Implementation
+
+### Sprint 0: Specs (5 documents)
+
+| Spec | Archivo | Contenido |
+|------|---------|-----------|
+| Systems Architecture | `core/systems_arch.md` | ABI v1, CameraSystem stub, lifecycle, registration |
+| ONT Format v1 | `render/ont_format_v1.md` | Binary layout, tensor_slots, versioning |
+| Shader Tensor Spec | `render/shader_tensor_spec.md` | tensor_buffer layout, sampling, W_frame, double buffer |
+| Determinism Spec | `core/determinism_spec.md` | Input replay, SHA-256, threading constraints |
+| Paradigm Invariants | `docs/PARADIGM_INVARIANTS.md` | 10 invariantes no negociables |
+
+### Sprint 1.1: FixedTimestep + ΔW
+- `core/fixed_timestep.h`: FixedTimestep struct con DT=1/60, accumulator, alpha, tick_count
+- `visor_app.cpp`: Integración en main loop, renderer.time = fixed_ts.currentW()
+
+### Sprint 1.2: Dirty Tracking Unificado
+- `scene/project.h`: markDirty(), clearDirty(), isDirty(), shouldAutosave(), AUTOSAVE_INTERVAL_MS=30000
+- `visor_app.cpp`: Autosave cada 30 segundos, on-close save
+
+### Sprint 1.3: Unificar Compilación
+- `visor/scheduler.h`: MAX_TENSOR_SLOTS=65536, tensor_slot_count en CompileResult
+- `visor/scheduler.cpp`: Validación tensor_slot_count en validate()
+- `visor/visor_app.cpp`: Compile lambda calcula tensor_slot_count = node_count + 1
+
+### Sprint 1.4: Readback GPU→CPU + Tensor Buffer
+- `render/scene.h`: OntHeader.tensor_buffer_size, OntGraphNode.tensor_slot, OntMaterial.tensor_slot
+- `render/vulkan_pipeline.h`: tensor_buffer, tensor_staging[2], output_staging, createHostBuffer()
+- `render/vulkan_pipeline.cpp`: Tensor buffer creation, descriptor binding (5 bindings), copy barriers, getTensorStagingData(), getOutputStagingData()
+
+### Sprint 1.5: Input Bus Real + Systems v1
+- `visor/input_bus.h`: InputSnapshot struct, play_mode, snapshot() method
+- `core/systems.h`: SystemContext_v1, CameraSystem, RegisteredSystem, DEFAULT_SYSTEMS
+- `core/systems.cpp`: CameraSystem implementation (WASD movement, tensor_delta[0])
+- `visor/visor_app.cpp`: Systems execution in play_mode, snapshot + deltas + apply
+
 ## 2026-09-03 — T-114/T-117/T-118/T-119/T-120: Features v1 completas
 
 ### Resumen

@@ -6,6 +6,13 @@
 
 namespace mg {
 
+struct InputSnapshot {
+    bool keys[256];
+    float mouse_dx, mouse_dy;
+    float scroll_y;
+    bool mouse_left, mouse_right, mouse_middle;
+};
+
 struct InputState {
     // Mouse
     float mouse_x = 0, mouse_y = 0;
@@ -41,11 +48,25 @@ struct InputState {
         mouse_dx = 0;
         mouse_dy = 0;
     }
+
+    // Create immutable snapshot for systems
+    InputSnapshot snapshot() const {
+        InputSnapshot s;
+        memcpy(s.keys, keys, sizeof(keys));
+        s.mouse_dx = mouse_dx;
+        s.mouse_dy = mouse_dy;
+        s.scroll_y = scroll_y;
+        s.mouse_left = mouse_left;
+        s.mouse_right = mouse_right;
+        s.mouse_middle = mouse_middle;
+        return s;
+    }
 };
 
 class InputBus {
 public:
     InputState state;
+    bool play_mode = false;  // separado de ont_mode (GPU/CPU)
 
     // Llamar al inicio de cada frame
     void beginFrame() {

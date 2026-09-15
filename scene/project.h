@@ -31,6 +31,7 @@ struct ProjectSource {
 
 struct Project {
     static constexpr int CURRENT_VERSION = 1;
+    static constexpr u32 AUTOSAVE_INTERVAL_MS = 30000; // 30 seconds
 
     int schema_version = CURRENT_VERSION;
     std::vector<ProjectSource> sources;
@@ -56,6 +57,24 @@ struct Project {
 
     // DockSpace layout (ImGui state, stored as base64 blob)
     std::string dockspace_layout;
+
+    // Dirty tracking
+    bool        dirty               = false;
+    u32         last_autosave_ms    = 0;
+
+    void markDirty() { dirty = true; }
+    void clearDirty() { dirty = false; }
+    bool isDirty() const { return dirty; }
+
+    // Check if autosave interval has elapsed
+    bool shouldAutosave(u32 now_ms) const {
+        return dirty && (now_ms - last_autosave_ms >= AUTOSAVE_INTERVAL_MS);
+    }
+
+    // Update autosave timestamp
+    void updateAutosaveTime(u32 now_ms) {
+        last_autosave_ms = now_ms;
+    }
 
     void setDefault() {
         schema_version = CURRENT_VERSION;

@@ -92,6 +92,26 @@ Ejecutar T-F5, T-F6 y T-F1.1/T-F1.2 en paralelo (son independientes entre sí).
 ## 5. Post-v2 (north-star)
 T-301 SDF-UI (M35) · T-302 ray-SDF 2D · T-303 bridges C hot-reload · T-304 export multiplataforma.
 
+## 6. Sprint 0 — Specs (pre-requisito)
+
+| ID | Archivo | Contenido | Estado |
+|----|---------|-----------|--------|
+| S0-1 | `core/systems_arch.md` | Systems ABI v1, CameraSystem stub, lifecycle | **✅ DONE** |
+| S0-2 | `render/ont_format_v1.md` | Binary layout, tensor_slots, versioning | **✅ DONE** |
+| S0-3 | `render/shader_tensor_spec.md` | tensor_buffer layout, sampling, W_frame, double buffer | **✅ DONE** |
+| S0-4 | `core/determinism_spec.md` | Input replay, SHA-256, threading constraints | **✅ DONE** |
+| S0-5 | `docs/PARADIGM_INVARIANTS.md` | 10 invariantes no negociables | **✅ DONE** |
+
+## 7. Sprint 1 — Tensor Pipeline Core
+
+| ID | Tarea | Archivos | Estado |
+|----|-------|----------|--------|
+| S1-1 | FixedTimestep + ΔW | `core/fixed_timestep.h`, `visor_app.cpp` | **✅ DONE** |
+| S1-2 | Dirty Tracking Unificado | `scene/project.h`, autosave 30s + on close | **✅ DONE** |
+| S1-3 | Unificar Compilación | `scheduler.h/cpp`, MAX_TENSOR_SLOTS, tensor_slot_count | **✅ DONE** |
+| S1-4 | Readback GPU→CPU + Tensor Buffer | `vulkan_pipeline.h/cpp`, tensor_buffer, staging[2], copy barriers | **✅ DONE** |
+| S1-5 | Input Bus Real + Systems v1 | `input_bus.h`, `core/systems.h/cpp`, CameraSystem slot 0 | **✅ DONE** |
+
 ## 6. Correcciones a los docs (al ejecutar)
 - **T-D1**: en `17c` §1, `core/scene_graph.h` → `scene/scene_graph.h`; `render/vulkan/` no existe (es `render/vulkan_core.cpp` / `render/vulkan_pipeline.cpp`).
 - **T-D2**: en `17c` §11, los 130 MB son del renderer SDF (manifiesto `motor gráfico.txt`), no de GTE→TB.

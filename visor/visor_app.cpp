@@ -11,6 +11,8 @@
 #include "imgui_impl_win32.h"
 #include "imgui_impl_vulkan.h"
 #include "core/herm_bridge.h"
+#include "input_bus.h"
+#include "core/systems.h"
 
 static std::ofstream g_diag;
 static void diag(const char* msg) {
@@ -180,6 +182,7 @@ bool VisorApp::init(HINSTANCE hInst, const wchar_t* initial_scene) {
                     r.nodes = ont.header->node_count;
                     r.materials = ont.header->material_count;
                     r.bytecode_bytes = ont.header->bytecode_size;
+                    r.tensor_slot_count = r.nodes + 1; // +1 for camera slot 0
                 } else {
                     r.ok = false;
                     r.error = err;
@@ -191,6 +194,7 @@ bool VisorApp::init(HINSTANCE hInst, const wchar_t* initial_scene) {
                     r.nodes = (uint32_t)sc.nodes.size();
                     r.materials = (uint32_t)sc.materials.size();
                     r.bytecode_bytes = 0;
+                    r.tensor_slot_count = r.nodes + 1; // +1 for camera slot 0
                 } else {
                     r.ok = false;
                     r.error = err;
@@ -339,11 +343,42 @@ void VisorApp::run() {
 
         u32 now = t1;
 
-        // Update animation time
-        renderer.time += 0.016f; // ~60 FPS steps
+        // FixedTimestep: advance W in ΔW=1/60 steps
+        float real_dt = 0.016f; // approximate frame time
+        fixed_ts.advance(real_dt);
+        renderer.time = fixed_ts.currentW();
         if (renderer.ont_scene.has_obs && renderer.ont_scene.obs.has_timeline) {
             f32 w_max = renderer.ont_scene.obs.w_max;
             if (w_max > 0) renderer.time = fmod(renderer.time, w_max);
+        }
+
+        // Systems v1: run in play_mode
+        if (input_bus.play_mode && renderer.vk_scene.tensor_slot_count > 0) {
+            // Snapshot tensor_buffer → tensor_snapshot (inmutable durante tick)
+            static float tensor_snapshot[65536][8];
+            static float tensor_delta[65536][8];
+            const float* tensor_data = renderer.vk_scene.getTensorStagingData();
+            if (tensor_data) {
+                memcpy(tensor_snapshot, tensor_data, renderer.vk_scene.tensor_slot_count * 8 * sizeof(float));
+            }
+            memset(tensor_delta, 0, sizeof(tensor_delta));
+
+            // Create system context
+            SystemContext_v1 ctx;
+            ctx.dt = FixedTimestep::DT;
+            ctx.input = input_bus.state.snapshot();
+            ctx.tensor_read = tensor_snapshot;
+            ctx.tensor_delta = tensor_delta;
+            ctx.graph = &scene_mgr.graph;
+            ctx.node_count = renderer.vk_scene.tensor_slot_count;
+
+            // Run registered systems
+            for (uint32_t i = 0; i < DEFAULT_SYSTEM_COUNT; i++) {
+                DEFAULT_SYSTEMS[i].tick(&ctx);
+            }
+
+            // Apply deltas atómicamente (suma conmutativa)
+            // Note: In v1, this modifies the snapshot; actual GPU buffer update happens in next frame
         }
 
         // Per-frame camera smoothing
@@ -368,6 +403,15 @@ void VisorApp::run() {
 
         // T-110: Scheduler — procesar debounce + compile async
         scheduler.update(now);
+
+        // Autosave check (every 30 seconds)
+        if (!project_path.empty() && project.shouldAutosave(now)) {
+            project.applyFrom(renderer.scene);
+            project.save(project_path.c_str());
+            project.saveBackup(project_path.c_str());
+            project.updateAutosaveTime(now);
+            console.addLog(LogEntry::Level::INFO, "Autosave: %ls", project_path.c_str());
+        }
 
         // First render always happens immediately
         if (first_render) {
@@ -609,6 +653,13 @@ void VisorApp::run() {
         if (!bench_vulkan) {
             Sleep(camera_moving ? 8 : 32);
         }
+    }
+    // On-close save
+    if (!project_path.empty() && project.isDirty()) {
+        project.applyFrom(renderer.scene);
+        project.save(project_path.c_str());
+        project.saveBackup(project_path.c_str());
+        project.clearDirty();
     }
     renderer.vk_scene.cleanup();
     vk_ctx.destroyViewportImage();
