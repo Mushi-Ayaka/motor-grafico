@@ -252,22 +252,41 @@ layout(set = 0, binding = 2) buffer Masks { uint64_t freeze_bits[]; uint64_t cul
 
 ### 6.1 Hallazgos de auditoria P0 (baseline)
 
+> **C1 (condicion):** Cada claim "YA existe" cita ruta:línea + hash de commit.
+
 | Archivo auditado | Lineas aprox | Lo encontrado (resumen) | Evidencia (ruta:linea) |
 |------------------|--------------|-------------------------|------------------------|
-| _pendiente_ | | | |
-| _pendiente_ | | | |
+| render/vulkan_pipeline.cpp | L94 | tensor_slot_count YA es (N+1)*8*4 en runtime | `render/vulkan_pipeline.cpp:94` commit `ef1c570` |
+| render/vulkan_pipeline.cpp | L105-106 | tensor_staging[2] YA creado con createHostBuffer | `render/vulkan_pipeline.cpp:105-106` commit `ef1c570` |
+| render/vulkan_pipeline.cpp | L345,352 | vkCmdCopyBuffer YA presente para tensor→staging y output→staging | `render/vulkan_pipeline.cpp:345,352` commit `ef1c570` |
+| render/vulkan_pipeline.cpp | L365 | tensor_staging_index YA alterna (double buffer) | `render/vulkan_pipeline.cpp:365` commit `ef1c570` |
+| visor/anomaly_gate.cpp | L10,172,232 | validateAST/Bytecode/TensorSlots YA implementadas (279 líneas) | `visor/anomaly_gate.cpp:10,172,232` commit `917e4d3` |
+| visor/visor_app.cpp | L349 | renderer.time YA usa fixed_ts.currentW() (no += 0.016f) | `visor/visor_app.cpp:349` commit `ef1c570` |
+| core/herm_bridge.cpp | L745 | hdr.tensor_buffer_size NUNCA se seteaba (quedaba en 0) | `core/herm_bridge.cpp:745` — **FIX F0.3** |
+| core/herm_bridge.cpp | L589-592 | evalExprConst retornaba 0.0f cuando is_expr=true | `core/herm_bridge.cpp:589-592` — **FIX F0.1** |
+| core/herm_bridge.cpp | L595 | opacity hardcodeado a 1.0f (ignoraba tensor[7]) | `core/herm_bridge.cpp:595` — **FIX F0.1** |
+| visor/scheduler.cpp | L73-88 | validate() NO llamaba a AnomalyGate (solo checks básicos) | `visor/scheduler.cpp:73-88` — **FIX F0.5** |
+
+#### Resolución de contradicciones (C1)
+
+| Claim del planner | Evidencia del builder | Resolución |
+|-------------------|----------------------|------------|
+| "renderer.time += 0.016f" | `visor/visor_app.cpp:349` usa `fixed_ts.currentW()` (commit `ef1c570`) | **Código YA correcto**. Test F0.2 agregado para prevenir regresión. |
+| "No hay vkCmdCopyBuffer, no hay staging" | `render/vulkan_pipeline.cpp:105-106,345,352` (commit `ef1c570`) | **Readback YA existía**. F0.4 agrega SHA-256 + frame tracking. |
+| "anomaly_gate.cpp está vacío" | `visor/anomaly_gate.cpp:10,172,232` (commit `917e4d3`, 279 líneas) | **Gate YA implementado**. F0.5 lo wired al Scheduler. |
+| "desfase N sin +1" | `render/vulkan_pipeline.cpp:94` tiene `node_count + 1` (commit `ef1c570`) | **Runtime correcto**. F0.3 corrige header serialization. |
 
 ### 6.2 Decisiones D1-D7 resueltas con datos
 
 | Decision | Datos medidos | Resolucion (CPU/GPU/hibrido) | Justificacion |
 |----------|---------------|------------------------------|---------------|
-| D1 | _pendiente_ | | |
-| D2 | _pendiente_ | | |
-| D3 | _pendiente_ | | |
-| D4 | _pendiente_ | | |
-| D5 | _pendiente_ | | |
-| D6 | _pendiente_ | | |
-| D7 | _pendiente_ | | |
+| D1 | _pendiente_ (medir en F0, decidir en F1) | Pendiente | |
+| D2 | _pendiente_ (medir en F1, decidir en F3) | Pendiente | |
+| D3 | N/A | CPU master, GPU traversal+refit | Ya decidido en spec |
+| D4 | N/A | No portar salvo >20% speedup | Ya decidido en spec |
+| D5 | N/A | Mantener asmjit fallback | Ya decidido en spec |
+| D6 | _pendiente_ (medir en F3, decidir en F4) | Pendiente | |
+| D7 | N/A | Techo <512MB RAM | Ya decidido en spec |
 
 ### 6.3 Riesgos confirmados / descartados
 
