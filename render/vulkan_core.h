@@ -82,11 +82,16 @@ struct VulkanContext {
     uint32_t        readback_frame_count = 0;   // frames since last readback
     uint32_t        readback_throttle    = 30;  // readback every N frames
     bool            readback_ready       = false;
+    uint64_t        readback_frame_number = 0;  // which frame the readback data is from (N-1)
+    uint8_t         readback_sha256[32]  = {};  // SHA-256 of framebuffer for determinism
+    bool            readback_hash_valid  = false; // true if hash is from a valid readback
 
     bool initReadbackBuffer(VkDeviceSize size);
     void destroyReadbackBuffer();
     void requestReadback(VkCommandBuffer cmd, VkBuffer source_buffer, VkDeviceSize size);
     bool getReadbackData(float* out_tensor, uint32_t max_components);
+    uint64_t getReadbackFrameNumber() const { return readback_frame_number; }
+    const uint8_t* getReadbackHash() const { return readback_hash_valid ? readback_sha256 : nullptr; }
 };
 
 extern VulkanContext vk_ctx;

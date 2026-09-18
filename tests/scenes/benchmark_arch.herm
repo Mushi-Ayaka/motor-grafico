@@ -1,0 +1,264 @@
+// benchmark_arch.herm — Escena arquitectónica de benchmark (~30 nodos)
+// Pabellón clásico con columnas, arco, cúpula, escalones y elemento dinámico
+// Diseñada para ser visualmente coherente bajo el modelo hermético
+
+scene "Benchmark Arquitectónico" {
+    axes { X: 800, Y: 600, W: 120 }
+    camera {
+        position: [4, 3, 6];
+        target:   [0, 1.5, 0];
+        up:       [0, 1, 0];
+        fov:      50;
+    }
+    background: [0.05, 0.05, 0.08];
+}
+
+// --- Constantes arquitectónicas ---
+let COL_H = 2.5;        // altura columnas
+let COL_R = 0.12;       // radio columnas
+let PLATFORM_Y = 0.0;   // nivel plataforma
+let ROOF_Y = 2.8;       // nivel techo
+
+// --- Materials ---
+material "piedra" {
+    base_color: [0.6, 0.55, 0.5];
+    roughness:  0.8;
+    metallic:   0.0;
+}
+
+material "piedra_oscura" {
+    base_color: [0.35, 0.3, 0.28];
+    roughness:  0.9;
+    metallic:   0.0;
+}
+
+material "marmol" {
+    base_color: [0.85, 0.82, 0.78];
+    roughness:  0.3;
+    metallic:   0.1;
+}
+
+material "bronce" {
+    base_color: [0.7, 0.5, 0.2];
+    roughness:  0.25;
+    metallic:   1.0;
+}
+
+material "agua" {
+    base_color: [0.15, 0.3, 0.6];
+    roughness:  0.1;
+    metallic:   0.0;
+    opacity:    0.7;
+}
+
+material "luz" {
+    base_color: [1.0, 0.9, 0.6];
+    roughness:  0.0;
+    metallic:   0.0;
+}
+
+// =============================================
+// PLATAFORMA BASE (3 escalones)
+// =============================================
+
+// Escalón 1 — base más ancha
+node "escalon_1" {
+    sdf: box(5.0, 0.2, 4.0);
+    material: "piedra_oscura";
+    position: [0, 0.1, 0];
+}
+
+// Escalón 2 — intermedio
+node "escalon_2" {
+    sdf: box(4.4, 0.2, 3.4);
+    material: "piedra";
+    position: [0, 0.3, 0];
+}
+
+// Escalón 3 — superior
+node "escalon_3" {
+    sdf: box(3.8, 0.2, 2.8);
+    material: "marmol";
+    position: [0, 0.5, 0];
+}
+
+// =============================================
+// COLUMNAS (4 esquinas + 2 centrales frontales)
+// =============================================
+
+// Columna trasera izquierda
+node "col_tl" {
+    sdf: cylinder(COL_R, COL_H);
+    material: "marmol";
+    position: [-1.5, COL_H/2 + 0.6, -1.0];
+}
+
+// Columna trasera derecha
+node "col_tr" {
+    sdf: cylinder(COL_R, COL_H);
+    material: "marmol";
+    position: [1.5, COL_H/2 + 0.6, -1.0];
+}
+
+// Columna frontal izquierda
+node "col_fl" {
+    sdf: cylinder(COL_R, COL_H);
+    material: "marmol";
+    position: [-1.5, COL_H/2 + 0.6, 1.0];
+}
+
+// Columna frontal derecha
+node "col_fr" {
+    sdf: cylinder(COL_R, COL_H);
+    material: "marmol";
+    position: [1.5, COL_H/2 + 0.6, 1.0];
+}
+
+// Columna central izquierda
+node "col_cl" {
+    sdf: cylinder(COL_R * 0.8, COL_H * 0.6);
+    material: "piedra";
+    position: [-0.7, COL_H*0.3 + 0.6, 1.0];
+}
+
+// Columna central derecha
+node "col_cr" {
+    sdf: cylinder(COL_R * 0.8, COL_H * 0.6);
+    material: "piedra";
+    position: [0.7, COL_H*0.3 + 0.6, 1.0];
+}
+
+// =============================================
+// ARCO FRONTAL (smooth_union de dos cilindros verticales)
+// =============================================
+
+node "arco_izq" {
+    sdf: cylinder(0.08, 1.8);
+    material: "piedra";
+    position: [-0.35, 1.5, 1.0];
+}
+
+node "arco_der" {
+    sdf: cylinder(0.08, 1.8);
+    material: "piedra";
+    position: [0.35, 1.5, 1.0];
+}
+
+// =============================================
+// TECHO / ENTABLAMENTO
+// =============================================
+
+// Viga principal
+node "viga" {
+    sdf: box(3.6, 0.25, 2.6);
+    material: "piedra";
+    position: [0, ROOF_Y, 0];
+}
+
+// Frontón triangular (aproximado con box inclinada)
+node "fronton" {
+    sdf: box(2.0, 0.15, 1.8);
+    material: "marmol";
+    position: [0, ROOF_Y + 0.3, 0];
+    rotation: [0, 0, 0];
+}
+
+// =============================================
+// CÚPULA (smooth_union esfera + cilindro)
+// =============================================
+
+node "cupula_base" {
+    sdf: cylinder(0.8, 0.4);
+    material: "piedra";
+    position: [0, ROOF_Y + 0.35, 0];
+}
+
+node "cupula" {
+    sdf: smooth_union(sphere(0.7), cylinder(0.5, 0.3), 0.15);
+    material: "marmol";
+    position: [0, ROOF_Y + 0.7, 0];
+}
+
+// =============================================
+// ELEMENTOS DECORATIVOS
+// =============================================
+
+// Fuente central (cilindro + esfera de agua)
+node "fuente_base" {
+    sdf: cylinder(0.4, 0.15);
+    material: "piedra_oscura";
+    position: [0, 0.7, 0];
+}
+
+node "fuente_agua" {
+    sdf: sphere(0.35);
+    material: "agua";
+    position: [0, 0.85, 0];
+}
+
+// Esfera decorativa sobre la cúpula
+node "esfera_cima" {
+    sdf: sphere(0.12);
+    material: "bronce";
+    position: [0, ROOF_Y + 1.2, 0];
+}
+
+// =============================================
+// PISOS / DETALLES
+// =============================================
+
+// Losas del piso (4 losas simétricas)
+node "losa_1" {
+    sdf: box(0.8, 0.05, 0.8);
+    material: "marmol";
+    position: [-0.9, 0.65, 0.4];
+}
+
+node "losa_2" {
+    sdf: box(0.8, 0.05, 0.8);
+    material: "marmol";
+    position: [0.9, 0.65, 0.4];
+}
+
+node "losa_3" {
+    sdf: box(0.8, 0.05, 0.8);
+    material: "marmol";
+    position: [-0.9, 0.65, -0.4];
+}
+
+node "losa_4" {
+    sdf: box(0.8, 0.05, 0.8);
+    material: "marmol";
+    position: [0.9, 0.65, -0.4];
+}
+
+// =============================================
+// ELEMENTO DINÁMICO (W-dependiente)
+// =============================================
+
+// Esfera que orbita alrededor de la fuente
+node "orbitante" {
+    sdf: sphere(0.08);
+    material: "luz";
+    position: [cos(w * 0.3) * 0.6, 1.0 + sin(w * 0.5) * 0.1, sin(w * 0.3) * 0.6];
+}
+
+// =============================================
+// SUELO INFINITO
+// =============================================
+
+node "suelo" {
+    sdf: plane(0, 1, 0, 0);
+    material: "piedra_oscura";
+}
+
+// =============================================
+//dead code — nodo con material invisible
+// =============================================
+
+node "dead_marker" {
+    sdf: sphere(0.01);
+    material: "agua";
+    opacity: 0.0;
+    position: [0, 0, 0];
+}

@@ -183,6 +183,18 @@ bool VisorApp::init(HINSTANCE hInst, const wchar_t* initial_scene) {
                     r.materials = ont.header->material_count;
                     r.bytecode_bytes = ont.header->bytecode_size;
                     r.tensor_slot_count = r.nodes + 1; // +1 for camera slot 0
+
+                    // F0.5: Run Anomaly Gate validation
+                    // Note: we need the RIH for full AST validation, but we only have OntScene here.
+                    // For now, validate tensor slots. Full AST validation happens when we have the RIH.
+                    auto tensor_anomalies = AnomalyGate::validateTensorSlots(r.nodes);
+                    r.anomalies.insert(r.anomalies.end(), tensor_anomalies.begin(), tensor_anomalies.end());
+
+                    // Validate bytecode if available
+                    if (ont.bytecode && ont.header->bytecode_size > 0) {
+                        auto bc_anomalies = AnomalyGate::validateBytecode(ont.bytecode, ont.header->bytecode_size);
+                        r.anomalies.insert(r.anomalies.end(), bc_anomalies.begin(), bc_anomalies.end());
+                    }
                 } else {
                     r.ok = false;
                     r.error = err;

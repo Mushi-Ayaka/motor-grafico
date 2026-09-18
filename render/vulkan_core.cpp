@@ -974,6 +974,7 @@ void VulkanContext::requestReadback(VkCommandBuffer cmd, VkBuffer source_buffer,
 
     // Reset counter
     readback_frame_count = 0;
+    readback_frame_number++;
 
     // Barrier: source buffer → TRANSFER_SRC
     VkBufferMemoryBarrier srcBarrier{};
@@ -1036,6 +1037,23 @@ bool VulkanContext::getReadbackData(float* out_tensor, uint32_t max_components) 
     for (uint32_t i = 0; i < count; i++) {
         out_tensor[i] = data[i];
     }
+
+    // Compute SHA-256 of the readback data for determinism verification
+    // Using Windows BCrypt API
+    HCRYPTPROV hProv = 0;
+    HCRYPTHASH hHash = 0;
+    readback_hash_valid = false;
+    if (CryptAcquireContext(&hProv, nullptr, nullptr, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+        if (CryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash)) {
+            CryptHashData(hHash, (const BYTE*)data, count * sizeof(float), 0);
+            DWORD hashLen = 32;
+            CryptGetHashParam(hHash, HP_HASHVAL, readback_sha256, &hashLen, 0);
+            readback_hash_valid = true;
+            CryptDestroyHash(hHash);
+        }
+        CryptReleaseContext(hProv, 0);
+    }
+
     return true;
 }
 

@@ -73,7 +73,7 @@ CompileResult Scheduler::forceCompile(const std::string& source) {
 bool Scheduler::validate(const CompileResult& result) {
     if (!result.ok) return false;
 
-    // Anomaly Gate: rechazar si no-finito en bytecode o nodes degenerados
+    // Basic validation
     if (result.nodes == 0) return false;
     if (result.materials == 0) return false;
     if (result.bytecode_bytes == 0) return false;
@@ -81,8 +81,8 @@ bool Scheduler::validate(const CompileResult& result) {
     // MAX_TENSOR_SLOTS validation
     if (result.tensor_slot_count > MAX_TENSOR_SLOTS) return false;
 
-    // TODO: detectar NaN/Inf en bytecode, recursión sin base, repeat sin dominio
-    // Por v1, validación básica es suficiente
+    // F0.5: Anomaly Gate — check for blocking errors
+    if (AnomalyGate::hasBlockingErrors(result.anomalies)) return false;
 
     return true;
 }

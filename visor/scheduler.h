@@ -1,7 +1,9 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <vector>
 #include <functional>
+#include "anomaly_gate.h"
 
 namespace mg {
 
@@ -14,6 +16,7 @@ struct CompileResult {
     uint32_t materials = 0;
     uint32_t bytecode_bytes = 0;
     uint32_t tensor_slot_count = 0;  // N_nodes + 1 (camera slot 0)
+    std::vector<Anomaly> anomalies;  // F0.5: Anomaly Gate results
 };
 
 using CompileFunc = std::function<CompileResult(const std::string& source)>;

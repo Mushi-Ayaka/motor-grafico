@@ -4,6 +4,7 @@
 #include "../render/sdf_eval.h"
 #include "../render/ray_march.h"
 #include "../render/render.h"
+#include "../core/fixed_timestep.h"
 #include <cstdio>
 #include <cstring>
 #define WIN32_LEAN_AND_MEAN
@@ -446,6 +447,59 @@ static void test_render() {
 }
 
 // ============================================================================
+// 8) FixedTimestep tests (F0.2 — W avanza en pasos de 1/60)
+// ============================================================================
+static void test_fixed_timestep() {
+    printf("\n--- FixedTimestep (W = tick_count * DT) ---\n");
+
+    FixedTimestep ts;
+
+    // Initial state
+    TEST("initial W = 0", ts.currentW() == 0.0f);
+    TEST("initial tick_count = 0", ts.tick_count == 0);
+
+    // Advance by exactly DT (1 frame)
+    ts.advance(1.0f / 60.0f);
+    TEST("after 1 frame: tick_count = 1", ts.tick_count == 1);
+    TEST("after 1 frame: W = 1/60", ts.currentW() == 1.0f / 60.0f);
+    TEST("after 1 frame: alpha = 0", ts.alpha == 0.0f);
+
+    // Advance by 2 more frames (total 3)
+    ts.advance(1.0f / 60.0f);
+    ts.advance(1.0f / 60.0f);
+    TEST("after 3 frames: tick_count = 3", ts.tick_count == 3);
+    TEST("after 3 frames: W = 3/60", ts.currentW() == 3.0f / 60.0f);
+
+    // Advance by non-integer frames (1.5 frames)
+    ts.advance(1.5f / 60.0f);
+    TEST("after 1.5 frames: tick_count = 4", ts.tick_count == 4);
+    TEST("after 1.5 frames: W = 4/60", ts.currentW() == 4.0f / 60.0f);
+    TEST("after 1.5 frames: alpha = 0.5", ts.alpha == 0.5f);
+
+    // Verify no drift after many frames
+    FixedTimestep ts2;
+    for (int i = 0; i < 600; i++) ts2.advance(1.0f / 60.0f);
+    float expected_w = 600.0f / 60.0f; // 10.0
+    float actual_w = ts2.currentW();
+    float drift = fabsf(actual_w - expected_w);
+    TEST("no drift after 600 frames (drift < 0.001)", drift < 0.001f);
+    TEST("tick_count = 600", ts2.tick_count == 600);
+
+    // Verify W is deterministic (same input -> same output)
+    FixedTimestep ts3, ts4;
+    for (int i = 0; i < 100; i++) {
+        ts3.advance(0.018f); // slightly off from DT
+        ts4.advance(0.018f);
+    }
+    TEST("deterministic W", ts3.currentW() == ts4.currentW());
+
+    // Verify reset
+    ts3.reset();
+    TEST("reset: W = 0", ts3.currentW() == 0.0f);
+    TEST("reset: tick_count = 0", ts3.tick_count == 0);
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 int main() {
@@ -463,6 +517,7 @@ int main() {
     test_shading();
     test_optimizations();
     test_render();
+    test_fixed_timestep();
 
     printf("\n========================================\n");
     printf("  Results: %d/%d passed\n", g_passed, g_tests);

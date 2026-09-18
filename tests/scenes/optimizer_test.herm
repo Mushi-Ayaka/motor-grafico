@@ -1,0 +1,117 @@
+// optimizer_test.herm — Escena para testing del RIH optimizer (F1)
+// Constant folding, dead code, smooth_union, nodo dinamico W
+
+scene "Optimizer Test" {
+    axes { X: 800, Y: 600, W: 120 }
+    camera {
+        position: [0, 2, 5];
+        target:   [0, 0.5, 0];
+        up:       [0, 1, 0];
+        fov:      60;
+    }
+    background: [0.1, 0.1, 0.15];
+}
+
+// --- Constantes (fold opportunities) ---
+let SCALE_CONST = 2.0 * 3.0;       // 6.0, foldable
+let NESTED = (1.0 + 2.0) * 3.0;   // 9.0, foldable
+let TRIG_CONST = sin(0);           // 0.0, foldable
+
+// --- Materials ---
+material "rojo" {
+    base_color: [0.8, 0.1, 0.1];
+    roughness:  0.5;
+    metallic:   0.0;
+}
+
+material "azul" {
+    base_color: [0.1, 0.1, 0.8];
+    roughness:  0.5;
+    metallic:   0.0;
+}
+
+material "verde" {
+    base_color: [0.1, 0.8, 0.1];
+    roughness:  0.5;
+    metallic:   0.0;
+}
+
+material "metal" {
+    base_color: [0.8, 0.8, 0.8];
+    roughness:  0.2;
+    metallic:   1.0;
+}
+
+material "invisible" {
+    base_color: [0, 0, 0];
+    roughness:  0;
+    metallic:   0;
+    opacity:    0.0;   // dead code: material transparente
+}
+
+// --- Scene graph ---
+
+// 1. Esfera con constant folding (radio = SCALE_CONST = 6.0)
+node "esfera_grande" {
+    sdf: sphere(SCALE_CONST);
+    material: "rojo";
+    position: [-2, 1, 0];
+}
+
+// 2. Box con nested folding (h = NESTED = 9.0)
+node "box_nested" {
+    sdf: box(1.0, NESTED, 1.0);
+    material: "azul";
+    position: [2, 4.5, 0];
+}
+
+// 3. Smooth union (S3) — esfera + box suavizados
+node "smooth_shape" {
+    sdf: smooth_union(sphere(0.5), box(0.6, 0.6, 0.6), 0.2);
+    material: "verde";
+    position: [0, 0.5, 0];
+}
+
+// 4. Nodo dinamico W (S3) — esfera pulsante
+node "pulsante" {
+    sdf: sphere(0.4 + sin(w * 2) * 0.2);
+    material: "metal";
+    position: [0, 1.5, 2];
+}
+
+// 5. Dead code — nodo con material invisible (opacity=0)
+node "dead_node" {
+    sdf: sphere(0.3);
+    material: "invisible";
+    position: [3, 0.5, 0];
+}
+
+// 6. Dead code — nodo con scale 0
+node "zero_scale" {
+    sdf: box(1, 1, 1);
+    material: "rojo";
+    scale: [0, 0, 0];
+    position: [-3, 0.5, 0];
+}
+
+// 7. Cylinder normal
+node "pilar" {
+    sdf: cylinder(0.15, 2.0);
+    material: "metal";
+    position: [1.5, 1, -1];
+}
+
+// 8. Toro
+node "anillo" {
+    sdf: torus(0.4, 0.1);
+    material: "azul";
+    position: [-1.5, 0.5, -1];
+    rotation: [90, 0, 0];
+}
+
+// 9. Capsula
+node "barra" {
+    sdf: capsule(0.8, 0.1);
+    material: "rojo";
+    position: [0, 1, -2];
+}

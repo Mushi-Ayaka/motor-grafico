@@ -24,7 +24,23 @@ bool compileToRih(const std::string& source, Rih& out, std::string* errOut);
 namespace mg {
 
 static inline f32 constExpr(const herm::Expr& e) {
-    return e.is_expr ? 0.0f : e.constant;
+    if (!e.is_expr) return e.constant;
+    // Try to parse expression string as literal float
+    const std::string& s = e.expression;
+    if (s.empty()) return 0.0f;
+    // Check for variable names that indicate dynamic expression
+    for (char c : s) {
+        if (c == 'w' || c == 't' || c == 'x' || c == 'y' || c == 'z') return 0.0f;
+        if (c == 'W' || c == 'T' || c == 'X' || c == 'Y' || c == 'Z') return 0.0f;
+    }
+    // Try to parse as float
+    try {
+        size_t pos = 0;
+        float val = std::stof(s, &pos);
+        while (pos < s.size() && (s[pos] == ' ' || s[pos] == '\t')) pos++;
+        if (pos == s.size()) return val;
+    } catch (...) {}
+    return 0.0f; // fallback for complex expressions (v2)
 }
 
 static const char* sdfTypeName(herm::SdfType t) {
@@ -246,7 +262,25 @@ static void compileSdfTree(const herm::SdfNode* nodes, uint32_t idx,
                            BytecodeBuilder& bc, const herm::Node& owner);
 
 static float evalExprConst(const herm::Expr& e) {
-    return e.is_expr ? 0.0f : e.constant;
+    if (!e.is_expr) return e.constant;
+    // Try to parse expression string as literal float
+    // If it contains variables (w,t,x,y,z) or functions, it's dynamic -> return 0.0f (v2)
+    const std::string& s = e.expression;
+    if (s.empty()) return 0.0f;
+    // Check for variable names that indicate dynamic expression
+    for (char c : s) {
+        if (c == 'w' || c == 't' || c == 'x' || c == 'y' || c == 'z') return 0.0f;
+        if (c == 'W' || c == 'T' || c == 'X' || c == 'Y' || c == 'Z') return 0.0f;
+    }
+    // Try to parse as float
+    try {
+        size_t pos = 0;
+        float val = std::stof(s, &pos);
+        // Verify entire string was consumed (allow trailing whitespace)
+        while (pos < s.size() && (s[pos] == ' ' || s[pos] == '\t')) pos++;
+        if (pos == s.size()) return val;
+    } catch (...) {}
+    return 0.0f; // fallback for complex expressions (v2)
 }
 
 // Compila una primitiva SDF a bytecode (stack-based).
@@ -592,7 +626,7 @@ static OntMaterial convertToOntMaterial(const herm::Material& m, uint32_t idx) {
     om.base_color[3] = evalExprConst(m.tensor[7]); // a
     om.roughness = 0.5f;  // default (tensor has no roughness channel)
     om.metallic = 0.0f;
-    om.opacity = 1.0f;
+    om.opacity = evalExprConst(m.tensor[7]); // use alpha from tensor, not hardcoded
     om.emission[0] = om.emission[1] = om.emission[2] = 0.0f;
     return om;
 }
@@ -709,6 +743,7 @@ bool convertHermToOntScene(const herm::Rih& in, OntScene& out) {
     hdr.bvh_count = (uint32_t)bvhNodes.size();
     hdr.material_count = (uint32_t)ontMats.size();
     hdr.bytecode_size = (uint32_t)allBytecode.size();
+    hdr.tensor_buffer_size = (uint32_t)((graphNodes.size() + 1) * 8 * sizeof(float)); // +1 for camera slot 0
     memcpy(hdr.scene_aabb_min, sceneMin, 4 * sizeof(float));
     memcpy(hdr.scene_aabb_max, sceneMax, 4 * sizeof(float));
     memcpy(ptr, &hdr, sizeof(OntHeader)); ptr += sizeof(OntHeader);
