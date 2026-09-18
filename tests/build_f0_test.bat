@@ -16,28 +16,21 @@ set THIS=%THIS:~0,-1%
 set OUTDIR=%THIS%\..\build
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 
-set RSP=%OUTDIR%\test_render.rsp
+set RSP=%OUTDIR%\test_f0.rsp
 echo /EHsc > "%RSP%"
 echo /std:c++17 >> "%RSP%"
 echo /utf-8 >> "%RSP%"
 echo /O2 >> "%RSP%"
 echo /MD >> "%RSP%"
 echo /DVK_NO_PROTOTYPES >> "%RSP%"
-echo /Fe"%OUTDIR%\test_render.exe" >> "%RSP%"
+echo /Fe"%OUTDIR%\test_f0.exe" >> "%RSP%"
 echo /I "%THIS%\.." >> "%RSP%"
-echo /I "%VULKAN_SDK%\Include" >> "%RSP%"
-echo /I "%THIS%\..\external\volk" >> "%RSP%"
-echo /I "%THIS%\..\external\VulkanMemoryAllocator\include" >> "%RSP%"
-echo /I "%THIS%\..\external\imgui" >> "%RSP%"
-echo /I "%THIS%\..\external\imgui\backends" >> "%RSP%"
-echo "%THIS%\test_render.cpp" >> "%RSP%"
+echo /I "%THIS%\..\deps\lenguaje-hermetico" >> "%RSP%"
+echo /I "%THIS%\..\deps\lenguaje-hermetico\contrato" >> "%RSP%"
+echo "%THIS%\test_f0.cpp" >> "%RSP%"
+echo "%THIS%\..\core\herm_bridge.cpp" >> "%RSP%"
 echo "%THIS%\..\render\scene.cpp" >> "%RSP%"
 echo "%THIS%\..\render\sdf_eval.cpp" >> "%RSP%"
-echo "%THIS%\..\render\jit_compiler.cpp" >> "%RSP%"
-echo "%THIS%\..\render\glsl_gen.cpp" >> "%RSP%"
-echo "%THIS%\..\render\vulkan_core.cpp" >> "%RSP%"
-echo "%THIS%\..\render\vulkan_pipeline.cpp" >> "%RSP%"
-echo "%THIS%\..\external\volk\volk.c" >> "%RSP%"
 echo "%THIS%\..\os\win32\mem.cpp" >> "%RSP%"
 echo "%THIS%\..\os\win32\file.cpp" >> "%RSP%"
 echo "%THIS%\..\os\win32\timer.cpp" >> "%RSP%"
@@ -46,14 +39,14 @@ echo /link >> "%RSP%"
 echo user32.lib >> "%RSP%"
 echo gdi32.lib >> "%RSP%"
 echo advapi32.lib >> "%RSP%"
-echo "%VULKAN_SDK%\Lib\vulkan-1.lib" >> "%RSP%"
+echo "%THIS%\..\build\libherm.lib" >> "%RSP%"
 
 cl @"%RSP%"
 del "%RSP%"
 
-if exist "%OUTDIR%\test_render.exe" (
+if exist "%OUTDIR%\test_f0.exe" (
     echo.
-    echo Build OK: "%OUTDIR%\test_render.exe"
+    echo Build OK: "%OUTDIR%\test_f0.exe"
 ) else (
     echo Build FAILED
     exit /b 1

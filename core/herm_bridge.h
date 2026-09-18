@@ -11,8 +11,7 @@
 #pragma once
 #include <string>
 #include <vector>
-
-namespace herm { struct Rih; }
+#include "deps/lenguaje-hermetico/contrato/rih.h"
 
 namespace mg {
 struct Scene;
@@ -29,4 +28,11 @@ bool compileHermToScene(const std::string& src, Scene& out, std::string* errOut 
 // El OntScene resultante se puede usar directamente con renderer.ont_scene / loadOnt.
 bool convertHermToOntScene(const herm::Rih& in, OntScene& out);
 bool compileHermToOntScene(const std::string& src, OntScene& out, std::string* errOut = nullptr);
+
+// --- Utility ---
+// Evalúa una expresión hermética como constante.
+// Si is_expr=false, retorna el valor constante directo.
+// Si is_expr=true, intenta parsear el string como float literal.
+// Si contiene variables (w,t,x,y,z) o es dinámica, retorna 0.0f (v2 dynamic evaluation).
+float evalExprConstPublic(const herm::Expr& e);
 } // namespace mg

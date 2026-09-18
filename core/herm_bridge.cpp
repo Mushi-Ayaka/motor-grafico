@@ -790,4 +790,9 @@ bool compileHermToOntScene(const std::string& src, OntScene& out, std::string* e
     return convertHermToOntScene(rih, out);
 }
 
+// Public wrapper for evalExprConst (F0.1 test)
+float evalExprConstPublic(const herm::Expr& e) {
+    return evalExprConst(e);
+}
+
 } // namespace mg
