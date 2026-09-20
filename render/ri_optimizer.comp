@@ -1,0 +1,155 @@
+// ri_optimizer.comp — GPU RIH Optimizer (F1)
+// Optimiza bytecode SDF: constant folding, dead code elimination
+// 1 thread per node
+#version 450
+#extension GL_EXT_scalar_block_layout : require
+
+layout(local_size_x = 256) in;
+
+// --- SSBO layouts (from ARCHITECTURE_PARTITION_SPEC §3.1) ---
+
+struct GpuRihNode {
+    uint sdf_type;
+    uint material_id;
+    float transform[16];
+    uint bytecode_offset;
+    uint bytecode_len;
+    float bbox_min[3];
+    float bbox_max[3];
+    uint flags;
+};
+
+struct OntMaterial {
+    uint id;
+    float base_color[4];
+    float roughness;
+    float metallic;
+    float emission[3];
+    float opacity;
+    uint tensor_slot;
+    uint reserved[3];
+};
+
+layout(scalar, binding = 0) readonly buffer RihIn { GpuRihNode nodes[]; };
+layout(scalar, binding = 1) writeonly buffer RihOut { GpuRihNode opt_nodes[]; };
+layout(scalar, binding = 2) buffer BytecodePool { uint opcodes[]; };
+layout(scalar, binding = 3) readonly buffer MatIn { OntMaterial materials[]; };
+
+// Shared constants
+layout(binding = 4) uniform OptConfig {
+    uint node_count;
+    uint bytecode_total_words; // total uint words in bytecode pool
+};
+
+// --- Opcode constants (from render/scene.h) ---
+const uint ONT_CONST  = 0;
+const uint ONT_ADD    = 14;
+const uint ONT_SUB    = 15;
+const uint ONT_MUL    = 16;
+const uint ONT_DIV    = 17;
+const uint ONT_MOD    = 18;
+const uint ONT_NEG    = 19;
+const uint ONT_POW    = 20;
+const uint ONT_MIN    = 28;
+const uint ONT_MAX    = 29;
+const uint ONT_END    = 34;
+
+// Read float from bytecode at word offset
+float readFloat(uint word_idx) {
+    uint w = opcodes[word_idx];
+    return uintBitsToFloat(w);
+}
+
+// Write float to bytecode at word offset
+void writeFloat(uint word_idx, float f) {
+    opcodes[word_idx] = floatBitsToUint(f);
+}
+
+// Try constant fold at position word_idx
+// Pattern: [CONST a] [CONST b] [OP] -> [CONST result]
+// Returns true if folding occurred
+bool tryConstantFold(uint word_idx) {
+    if (word_idx + 3 > bytecode_total_words) return false;
+
+    uint op0 = opcodes[word_idx] & 0xFF;
+    uint op1 = opcodes[word_idx + 1] & 0xFF;
+    uint op2 = opcodes[word_idx + 2] & 0xFF;
+
+    if (op0 != ONT_CONST || op1 != ONT_CONST) return false;
+
+    float a = readFloat(word_idx);
+    float b = readFloat(word_idx + 1);
+    float result = 0.0;
+    bool valid = false;
+
+    if (op2 == ONT_ADD) { result = a + b; valid = true; }
+    else if (op2 == ONT_SUB) { result = a - b; valid = true; }
+    else if (op2 == ONT_MUL) { result = a * b; valid = true; }
+    else if (op2 == ONT_DIV && abs(b) > 1e-10) { result = a / b; valid = true; }
+    else if (op2 == ONT_MIN) { result = min(a, b); valid = true; }
+    else if (op2 == ONT_MAX) { result = max(a, b); valid = true; }
+    else if (op2 == ONT_POW) { result = pow(a, b); valid = true; }
+
+    if (!valid) return false;
+
+    // Write folded constant
+    writeFloat(word_idx, result);
+    opcodes[word_idx + 1] = ONT_END; // nop
+    opcodes[word_idx + 2] = ONT_END; // nop
+    return true;
+}
+
+// Check if node is dead (scale=0 or invisible material)
+bool isNodeDead(uint node_idx) {
+    GpuRihNode n = nodes[node_idx];
+
+    // Check scale: transform[0]=sx, transform[5]=sy, transform[10]=sz
+    float sx = n.transform[0];
+    float sy = n.transform[5];
+    float sz = n.transform[10];
+    if (abs(sx) < 1e-10 && abs(sy) < 1e-10 && abs(sz) < 1e-10) return true;
+
+    // Check material opacity
+    if (n.material_id < node_count) {
+        OntMaterial m = materials[n.material_id];
+        if (m.opacity < 1e-10) return true;
+    }
+
+    return false;
+}
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= node_count) return;
+
+    // Copy node to output
+    GpuRihNode n = nodes[idx];
+
+    // Check if node is dead
+    if (isNodeDead(idx)) {
+        n.flags |= 0x4u; // mark as culled (bit2)
+        opt_nodes[idx] = n;
+        return;
+    }
+
+    // Optimize bytecode for this node
+    if (n.bytecode_len > 0) {
+        uint word_start = n.bytecode_offset / 4; // convert byte offset to word offset
+        uint word_end = word_start + n.bytecode_len / 4;
+
+        // Constant folding pass
+        uint word = word_start;
+        while (word + 3 <= word_end && word + 3 <= bytecode_total_words) {
+            uint op = opcodes[word] & 0xFF;
+            if (op == ONT_END) break;
+
+            if (tryConstantFold(word)) {
+                // Folding occurred, don't advance (check next pattern)
+                continue;
+            }
+            word += 3; // advance by 3 words (CONST, CONST, OP)
+        }
+    }
+
+    opt_nodes[idx] = n;
+}

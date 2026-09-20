@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "render/scene.h"                                  // mg::Scene, OntScene, OntOpcode, ...
+#include "render/ri_optimizer.h"                           // F1: RIH bytecode optimizer
 
 // herm.h usa f64 pero no lo define; depende de os/os.h. Lo definimos ANTES de incluir.
 namespace herm { using f64 = double; }
@@ -787,7 +788,16 @@ bool compileHermToOntScene(const std::string& src, OntScene& out, std::string* e
     herm::Rih rih;
     if (!herm::compileToRih(src, rih, errOut))
         return false;
-    return convertHermToOntScene(rih, out);
+    bool ok = convertHermToOntScene(rih, out);
+
+    // F1: Run RIH optimizer on the compiled scene
+    if (ok) {
+        OptStats stats;
+        optimizeOntScene(out, &stats);
+        // Stats available for debugging: stats.ops_before, stats.ops_after, etc.
+    }
+
+    return ok;
 }
 
 // Public wrapper for evalExprConst (F0.1 test)

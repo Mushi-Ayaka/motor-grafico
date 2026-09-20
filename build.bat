@@ -64,6 +64,7 @@ echo "%THIS%\render\scene.cpp" >> "%RSP%"
 echo "%THIS%\render\sdf_eval.cpp" >> "%RSP%"
 echo "%THIS%\render\jit_compiler.cpp" >> "%RSP%"
 echo "%THIS%\render\glsl_gen.cpp" >> "%RSP%"
+echo "%THIS%\render\ri_optimizer.cpp" >> "%RSP%"
 echo "%THIS%\os\win32\mem.cpp" >> "%RSP%"
 echo "%THIS%\os\win32\file.cpp" >> "%RSP%"
 echo "%THIS%\os\win32\timer.cpp" >> "%RSP%"
@@ -117,7 +118,7 @@ if exist "%THIS%\build\visor_tmp.exe" (
 
 :: Build test_ont_bridge
 echo Compilando test_ont_bridge...
-cl /EHsc /std:c++17 /utf-8 /O2 /MD /DVK_USE_PLATFORM_WIN32_KHR /DASMJIT_STATIC /Fe"%THIS%\build\test_ont_bridge.exe" /I "%THIS%" /I "%THIS%\external\asmjit" /I "%VULKAN_SDK%\Include" /I "%THIS%\external\volk" /I "%THIS%\external\VulkanMemoryAllocator\include" /I "%THIS%\external\imgui" /I "%THIS%\external\imgui\backends" /I "%THIS%\deps\lenguaje-hermetico\contrato" /I "%THIS%\deps\lenguaje-hermetico\herm" "%THIS%\tools\test_ont_bridge.cpp" "%THIS%\core\herm_bridge.cpp" "%THIS%\render\scene.cpp" "%THIS%\render\sdf_eval.cpp" "%THIS%\render\jit_compiler.cpp" "%THIS%\render\glsl_gen.cpp" "%THIS%\os\win32\mem.cpp" "%THIS%\os\win32\file.cpp" "%THIS%\os\win32\timer.cpp" "%THIS%\os\win32\win32.cpp" "%THIS%\render\vulkan_core.cpp" "%THIS%\render\vulkan_pipeline.cpp" "%THIS%\external\volk\volk.c" "%THIS%\external\imgui\imgui.cpp" "%THIS%\external\imgui\imgui_draw.cpp" "%THIS%\external\imgui\imgui_widgets.cpp" "%THIS%\external\imgui\imgui_tables.cpp" "%THIS%\external\imgui\backends\imgui_impl_win32.cpp" "%THIS%\build\imgui_impl_vulkan.obj" /link /SUBSYSTEM:CONSOLE user32.lib gdi32.lib advapi32.lib "%THIS%\build\asmjit.lib" "%THIS%\build\libherm.lib"
+cl /EHsc /std:c++17 /utf-8 /O2 /MD /DVK_USE_PLATFORM_WIN32_KHR /DASMJIT_STATIC /Fe"%THIS%\build\test_ont_bridge.exe" /I "%THIS%" /I "%THIS%\external\asmjit" /I "%VULKAN_SDK%\Include" /I "%THIS%\external\volk" /I "%THIS%\external\VulkanMemoryAllocator\include" /I "%THIS%\external\imgui" /I "%THIS%\external\imgui\backends" /I "%THIS%\deps\lenguaje-hermetico\contrato" /I "%THIS%\deps\lenguaje-hermetico\herm" "%THIS%\tools\test_ont_bridge.cpp" "%THIS%\core\herm_bridge.cpp" "%THIS%\render\scene.cpp" "%THIS%\render\sdf_eval.cpp" "%THIS%\render\jit_compiler.cpp" "%THIS%\render\glsl_gen.cpp" "%THIS%\render\ri_optimizer.cpp" "%THIS%\os\win32\mem.cpp" "%THIS%\os\win32\file.cpp" "%THIS%\os\win32\timer.cpp" "%THIS%\os\win32\win32.cpp" "%THIS%\render\vulkan_core.cpp" "%THIS%\render\vulkan_pipeline.cpp" "%THIS%\external\volk\volk.c" "%THIS%\external\imgui\imgui.cpp" "%THIS%\external\imgui\imgui_draw.cpp" "%THIS%\external\imgui\imgui_widgets.cpp" "%THIS%\external\imgui\imgui_tables.cpp" "%THIS%\external\imgui\backends\imgui_impl_win32.cpp" "%THIS%\build\imgui_impl_vulkan.obj" /link /SUBSYSTEM:CONSOLE user32.lib gdi32.lib advapi32.lib "%THIS%\build\asmjit.lib" "%THIS%\build\libherm.lib"
 if errorlevel 1 (
     echo Error al compilar test_ont_bridge
 ) else (

@@ -16,18 +16,18 @@ set THIS=%THIS:~0,-1%
 set OUTDIR=%THIS%\..\build
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 
-set RSP=%OUTDIR%\test_f0.rsp
+set RSP=%OUTDIR%\test_f1.rsp
 echo /EHsc > "%RSP%"
 echo /std:c++17 >> "%RSP%"
 echo /utf-8 >> "%RSP%"
 echo /O2 >> "%RSP%"
 echo /MD >> "%RSP%"
 echo /DVK_NO_PROTOTYPES >> "%RSP%"
-echo /Fe"%OUTDIR%\test_f0.exe" >> "%RSP%"
+echo /Fe"%OUTDIR%\test_f1.exe" >> "%RSP%"
 echo /I "%THIS%\.." >> "%RSP%"
 echo /I "%THIS%\..\deps\lenguaje-hermetico" >> "%RSP%"
 echo /I "%THIS%\..\deps\lenguaje-hermetico\contrato" >> "%RSP%"
-echo "%THIS%\test_f0.cpp" >> "%RSP%"
+echo "%THIS%\test_f1.cpp" >> "%RSP%"
 echo "%THIS%\..\core\herm_bridge.cpp" >> "%RSP%"
 echo "%THIS%\..\render\scene.cpp" >> "%RSP%"
 echo "%THIS%\..\render\sdf_eval.cpp" >> "%RSP%"
@@ -45,9 +45,9 @@ echo "%THIS%\..\build\libherm.lib" >> "%RSP%"
 cl @"%RSP%"
 del "%RSP%"
 
-if exist "%OUTDIR%\test_f0.exe" (
+if exist "%OUTDIR%\test_f1.exe" (
     echo.
-    echo Build OK: "%OUTDIR%\test_f0.exe"
+    echo Build OK: "%OUTDIR%\test_f1.exe"
 ) else (
     echo Build FAILED
     exit /b 1
