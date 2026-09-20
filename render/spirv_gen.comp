@@ -1,0 +1,127 @@
+// spirv_gen.comp — GPU SDF Shader Generator (F3)
+// Prepares optimized bytecode for per-scene shader generation.
+// 1 thread per node: validates, marks live nodes, outputs compact bytecode.
+//
+// This replaces the VM stack-based evaluation path by preparing data
+// for CPU-side GLSL generation with inline SDF functions.
+
+#version 450
+#extension GL_EXT_scalar_block_layout : require
+
+layout(local_size_x = 256) in;
+
+// --- Input: OntScene bytecode pool (output of F1 optimizer) ---
+layout(set = 0, binding = 0, std430) readonly buffer BytecodeIn {
+    uint data[];
+} bytecode_in;
+
+// --- Input: node metadata ---
+struct NodeMeta {
+    uint bytecode_offset;
+    uint bytecode_length;
+    uint material_id;
+    uint tensor_slot;
+    float transform[16];
+    float bbox_min[4];
+    float bbox_max[4];
+    uint  flags;       // bit0=culled
+};
+
+layout(set = 0, binding = 1, std430) readonly buffer NodeMetaIn {
+    NodeMeta nodes[];
+} node_meta_in;
+
+// --- Output: compact bytecode for live nodes ---
+layout(set = 0, binding = 2, std430) writeonly buffer BytecodeOut {
+    uint data[];
+} bytecode_out;
+
+// --- Output: compact node mapping (live_index -> original_index) ---
+struct CompactNode {
+    uint original_index;
+    uint out_bytecode_offset;
+    uint out_bytecode_length;
+    uint material_id;
+    uint tensor_slot;
+};
+
+layout(set = 0, binding = 3, std430) writeonly buffer CompactOut {
+    CompactNode nodes[];
+} compact_out;
+
+// --- Output: header ---
+struct GenHeader {
+    uint total_nodes;
+    uint live_count;
+    uint total_bytecode_words;
+    uint pad;
+};
+
+layout(set = 0, binding = 4, std430) writeonly buffer HeaderOut {
+    GenHeader header;
+} header_out;
+
+// Opcodes matching scene.h OntOpcode
+const uint OP_CONST   = 0;
+const uint OP_VAR_X   = 1;
+const uint OP_VAR_Y   = 2;
+const uint OP_VAR_Z   = 3;
+const uint OP_VAR_W   = 4;
+const uint OP_END     = 34;
+
+bool isDeadNode(uint flags, float sx, float sy, float sz) {
+    if ((flags & 0x4u) != 0u) return true;
+    if (abs(sx) < 1e-10 && abs(sy) < 1e-10 && abs(sz) < 1e-10) return true;
+    return false;
+}
+
+shared uint s_live_count;
+shared uint s_bc_words;
+
+void main() {
+    uint tid = gl_GlobalInvocationID.x;
+    if (tid == 0u) {
+        s_live_count = 0u;
+        s_bc_words = 0u;
+    }
+    barrier();
+
+    uint total = node_meta_in.nodes.length();
+    if (tid >= total) return;
+
+    NodeMeta nm = node_meta_in.nodes[tid];
+
+    bool dead = isDeadNode(nm.flags, nm.transform[0], nm.transform[5], nm.transform[10]);
+
+    if (!dead && nm.bytecode_length > 0u) {
+        uint live_idx = atomicAdd(s_live_count, 1u);
+        uint bc_words = (nm.bytecode_length + 3u) / 4u;
+        uint out_offset = atomicAdd(s_bc_words, bc_words);
+
+        compact_out.nodes[live_idx].original_index = tid;
+        compact_out.nodes[live_idx].out_bytecode_offset = out_offset * 4u;
+        compact_out.nodes[live_idx].out_bytecode_length = nm.bytecode_length;
+        compact_out.nodes[live_idx].material_id = nm.material_id;
+        compact_out.nodes[live_idx].tensor_slot = nm.tensor_slot;
+
+        for (uint i = 0; i < nm.bytecode_length; i += 4u) {
+            uint word = 0u;
+            uint remaining = nm.bytecode_length - i;
+            uint bytes = min(remaining, 4u);
+            for (uint b = 0u; b < bytes; b++) {
+                uint byte_val = bytecode_in.data[(nm.bytecode_offset + i + b) / 4u];
+                byte_val = (byte_val >> ((nm.bytecode_offset + i + b) % 4u * 8u)) & 0xFFu;
+                word |= byte_val << (b * 8u);
+            }
+            bytecode_out.data[(out_offset * 4u + i) / 4u] = word;
+        }
+    }
+
+    barrier();
+
+    if (tid == 0u) {
+        header_out.header.total_nodes = total;
+        header_out.header.live_count = s_live_count;
+        header_out.header.total_bytecode_words = s_bc_words;
+    }
+}
