@@ -22,3 +22,10 @@ con fallback CPU (SIMD+MT) para debug.
 | 13 | `13-grid-sdf.md` | SDF Grid (V0): estructura, clasificación, evaluación híbrida |
 | 14 | `14-brickmap.md` | BrickMap (V1): Sparse Voxel Grid, top-level, memoria dispersa |
 | 15 | `15-vision-producto.md` | Visión de producto: editor, sonido, lógica, calidad visual, optimización |
+| 16 | `16-ui-ux-editor-brief.md` | Brief de UI/UX del editor |
+| 17a| `17a-ui-ux-editor-conceptual.md` | Concepto UI/UX |
+| 17b| `17b-ui-ux-editor-modulos.md` | Módulos UI/UX |
+| 17c| `17c-ui-ux-editor-ingenieria.md` | Ingeniería UI/UX |
+| 18 | `18-roadmap-tareas.md` | Roadmap y tareas |
+| 19 | `19-pipeline-madurez-optimizacion.md` | Pipeline: madurez y optimización (Track A/B/C) |
+| 20 | `20-ui-ventanas-layout.md` | **Sistema de ventanas + layout default (DockBuilder, menú Window)** |

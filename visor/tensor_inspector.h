@@ -8,7 +8,7 @@ namespace mg {
 
 class TensorInspector {
 public:
-    bool visible = true;
+    bool visible = false; // v0.35: oculto por default (se activa desde menú Window)
 
     // History for component plots (last 60 values)
     static constexpr int HISTORY_SIZE = 60;

@@ -1,1 +1,5 @@
-ERROR: no se pudo abrir D:\documentos\Jonatan Baron\proyectos-index\proyecto de IA artistica\Lenguaje Hermetico\.gitignored\libreria\escenas\test_minimo.ont
+Escena: 35 nodos, 21 BVH, 14 materiales, 3340 bytecode bytes
+Resolucion: 1280 x 720
+GPU Vulkan Compute (200 frames):
+  Media: 18.920 ms (52.9 FPS)
+  Total: 3783.933 ms

@@ -249,7 +249,12 @@ bool compileHermToScene(const std::string& src, Scene& out, std::string* errOut)
 struct BytecodeBuilder {
     std::vector<uint8_t> code;
 
-    void emit(uint8_t op) { code.push_back(op); }
+    // Canonical format is 5 bytes per instruction: [op][f32 operand]
+    // (matches execBcRaw, glsl_gen, spirv_gen and ri_optimizer stride).
+    void emit(uint8_t op) {
+        code.push_back(op);
+        code.insert(code.end(), 4, 0);
+    }
     void emitF32(uint8_t op, float v) {
         code.push_back(op);
         const uint8_t* p = reinterpret_cast<const uint8_t*>(&v);

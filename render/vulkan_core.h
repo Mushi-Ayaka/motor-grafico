@@ -6,6 +6,9 @@
 
 namespace mg {
 
+// A3: número de frames en vuelo (fences/semaphores/command buffers por slot)
+static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
+
 struct VulkanContext {
     VkInstance instance = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE;
@@ -25,12 +28,22 @@ struct VulkanContext {
     std::vector<VkImage> swapchain_images;
     std::vector<VkImageView> swapchain_image_views;
 
-    VkSemaphore image_available_sem = VK_NULL_HANDLE;
-    VkSemaphore render_finished_sem = VK_NULL_HANDLE;
-    VkFence in_flight_fence = VK_NULL_HANDLE;
+    VkSemaphore image_available_sem[FRAMES_IN_FLIGHT] = {};
+    VkSemaphore render_finished_sem[FRAMES_IN_FLIGHT] = {};
+    VkFence in_flight_fence[FRAMES_IN_FLIGHT] = {};
+    VkFence imgui_fence[FRAMES_IN_FLIGHT] = {}; // A3: fence per-frame para el submit de ImGui (graphics queue)
+    uint32_t current_frame = 0; // índice de frame en vuelo (ciclo 0/1)
 
     VkCommandPool command_pool = VK_NULL_HANDLE;
-    VkCommandBuffer compute_command_buffer = VK_NULL_HANDLE;
+    VkCommandBuffer compute_command_buffer[FRAMES_IN_FLIGHT] = {};
+
+    // --- A1: GPU timestamps (medición rigurosa por dispatch) ---
+    VkQueryPool timestamp_pool = VK_NULL_HANDLE;
+    float        timestamp_period_ns = 0.0f;   // ns por tick (de VkPhysicalDeviceLimits)
+    double       last_gpu_ms = 0.0;            // GPU time del último frame leído (tras fence wait)
+    bool         timestamp_submitted[FRAMES_IN_FLIGHT] = {}; // true si el slot ya tuvo un submit con timestamps
+
+    char device_name[256] = {}; // nombre del GPU elegido (para stats)
 
     bool init(HWND hwnd);
     bool initSwapchain(uint32_t width, uint32_t height);
@@ -52,9 +65,10 @@ struct VulkanContext {
     VkDescriptorPool imgui_descriptor_pool = VK_NULL_HANDLE;
     std::vector<VkFramebuffer> imgui_framebuffers;
     VkCommandPool   imgui_command_pool   = VK_NULL_HANDLE;
-    VkCommandBuffer imgui_command_buffer  = VK_NULL_HANDLE;
+    VkCommandBuffer imgui_command_buffer[FRAMES_IN_FLIGHT] = {}; // A3: per-frame (evita race con frames en vuelo)
     VkSemaphore     imgui_present_sem     = VK_NULL_HANDLE; // graphics -> present
     bool            imgui_enabled         = false;
+    bool            ui_visible            = true; // F2: oculta overlay ImGui (barrera -> PRESENT_SRC directo)
 
     bool initImGui(HWND hwnd);
     void createImguiFramebuffers();
@@ -82,6 +96,7 @@ struct VulkanContext {
     uint32_t        readback_frame_count = 0;   // frames since last readback
     uint32_t        readback_throttle    = 30;  // readback every N frames
     bool            readback_ready       = false;
+    VkDeviceSize    readback_size        = 0;     // capacity actual del buffer
     uint64_t        readback_frame_number = 0;  // which frame the readback data is from (N-1)
     uint8_t         readback_sha256[32]  = {};  // SHA-256 of framebuffer for determinism
     bool            readback_hash_valid  = false; // true if hash is from a valid readback

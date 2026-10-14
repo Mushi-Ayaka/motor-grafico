@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 #include "window_manager.h"
 #include "input_controller.h"
 #include "scene_manager.h"
@@ -95,7 +96,12 @@ struct VisorApp {
     f32  render_scale = 1.0f;
     u32  full_res_tick = 0;
     bool toggle_held = false;
+    bool ui_toggle_held = false; // F2: edge-detect para alternar overlay ImGui
     bool undo_redo_held = false;
+
+    // Window menu (v0.35): visibilidad de las ventanas dockeadas por default
+    bool show_viewport  = true;
+    bool show_properties = true;
 
     // FPS counter + perf timing
     u32 frame_count = 0;
@@ -110,6 +116,28 @@ struct VisorApp {
     u32 bench_max_frames = 200;
     LARGE_INTEGER bench_start, bench_end;
     bool bench_clock_started = false;
+
+    // --stats: métricas por frame para estadística de población
+    bool stats_mode = false;
+    std::wstring scene_path;
+    std::vector<double> stats_frame_ms;   // wall por iteración (sin sleep en stats mode)
+    std::vector<double> stats_render_ms;  // ms de render del bloque de render
+    std::vector<double> stats_gpu_ms;     // GPU dispatch time (vkGetQueryPoolResults)
+    double render_ms_qpc = 0.0;           // duracion del ultimo bloque de render (QPC, preciso)
+    LARGE_INTEGER stats_qpc_prev = {};
+    bool stats_clock_started = false;
+    uint32_t stats_rw = 0, stats_rh = 0;
+    uint32_t stats_frames_render = 0;     // frames con dispatch real
+    uint32_t stats_frames_skip = 0;       // frames sin dispatch (pipeline not ready / acquire fail)
+    void writeStats();
+
+    // A4: nvidia-smi polling (1Hz en modo --stats)
+    double gpu_util_pct = -1.0;           // % de uso del motor 3D
+    double gpu_power_w = -1.0;            // Watts actuales
+    double gpu_temp_c = -1.0;             // Celsius
+    double vram_used_mb = -1.0;           // MiB de memoria dedicada usada
+    double gpu_clock_mhz = -1.0;          // SM clock actual
+    void pollNvidiaSmi();
 
     bool init(HINSTANCE hInst, const wchar_t* initial_scene);
     void run();

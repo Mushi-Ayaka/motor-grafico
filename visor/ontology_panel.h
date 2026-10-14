@@ -18,7 +18,7 @@ struct OntologyNodeInfo {
 
 class OntologyPanel {
 public:
-    bool visible = true;
+    bool visible = false; // v0.35: oculto por default (se activa desde menú Window)
     int32_t selected_node = -1;
 
     // F/Q/B facet visibility (toggles what's shown in tree)

@@ -1,0 +1,383 @@
+scene "05 Catedral" {
+    axes { X: 1280, Y: 720, W: 1 }
+    camera {
+        position: [0, 1.7, 5.2];
+        target: [0, 2.4, -5];
+        up: [0, 1, 0];
+        fov: 62;
+    }
+    background: [0.01, 0.01, 0.03];
+}
+
+light "sol_ventanal" {
+    type: directional;
+    direction: [0.3, 0.7, 0.5];
+    color: [1, 0.95, 0.85];
+    intensity: 0.55;
+}
+
+light "altar_luz" {
+    type: point;
+    position: [0, 3, -5];
+    color: [1, 0.8, 0.5];
+    intensity: 0.6;
+    falloff: 0.04;
+}
+
+light "nave" {
+    type: point;
+    position: [0, 5, 2];
+    color: [0.9, 0.85, 1];
+    intensity: 0.4;
+    falloff: 0.05;
+}
+
+light "vital1" {
+    type: point;
+    position: [-5, 2.5, 0];
+    color: [0.5, 0.7, 1];
+    intensity: 0.35;
+    falloff: 0.07;
+}
+
+material "piso_losa" {
+    base_color: [0.3, 0.29, 0.31];
+    roughness: 0.25;
+    metallic: 0.0;
+}
+
+material "muro" {
+    base_color: [0.55, 0.52, 0.47];
+    roughness: 0.92;
+    metallic: 0.0;
+}
+
+material "boveda" {
+    base_color: [0.3, 0.3, 0.34];
+    roughness: 0.95;
+    metallic: 0.0;
+}
+
+material "columna_piedra" {
+    base_color: [0.62, 0.6, 0.55];
+    roughness: 0.6;
+    metallic: 0.0;
+}
+
+material "madera_oscura" {
+    base_color: [0.25, 0.15, 0.08];
+    roughness: 0.5;
+    metallic: 0.0;
+}
+
+material "oro" {
+    base_color: [1.0, 0.85, 0.4];
+    roughness: 0.18;
+    metallic: 1.0;
+}
+
+material "bronce" {
+    base_color: [0.6, 0.45, 0.22];
+    roughness: 0.3;
+    metallic: 1.0;
+}
+
+material "plata" {
+    base_color: [0.8, 0.8, 0.85];
+    roughness: 0.25;
+    metallic: 1.0;
+}
+
+material "vital_rojo" {
+    base_color: [0.7, 0.1, 0.12];
+    roughness: 0.3;
+    metallic: 0.0;
+    emission: [0.9, 0.15, 0.1];
+}
+
+material "vital_azul" {
+    base_color: [0.1, 0.2, 0.7];
+    roughness: 0.3;
+    metallic: 0.0;
+    emission: [0.15, 0.3, 0.9];
+}
+
+material "vital_verde" {
+    base_color: [0.1, 0.6, 0.3];
+    roughness: 0.3;
+    metallic: 0.0;
+    emission: [0.15, 0.8, 0.4];
+}
+
+material "vela" {
+    base_color: [0.95, 0.9, 0.75];
+    roughness: 0.5;
+    metallic: 0.0;
+    emission: [1.0, 0.8, 0.45];
+}
+
+material "luminaria" {
+    base_color: [0.9, 0.85, 0.7];
+    roughness: 0.4;
+    metallic: 0.0;
+    emission: [1.0, 0.9, 0.65];
+}
+
+material "ceramica_azul" {
+    base_color: [0.12, 0.25, 0.6];
+    roughness: 0.2;
+    metallic: 0.0;
+}
+
+node "piso" {
+    sdf: box(6, 0.1, 6);
+    material: "piso_losa";
+    position: [0, -0.1, 0];
+}
+
+node "boveda" {
+    sdf: box(6, 0.1, 6);
+    material: "boveda";
+    position: [0, 5.6, 0];
+}
+
+node "muro_ventanal" {
+    sdf: subtract(box(6, 2.8, 0.15), box(2, 2, 0.6));
+    material: "muro";
+    position: [0, 2.8, -5.95];
+}
+
+node "muro_trasero" {
+    sdf: box(6, 2.8, 0.15);
+    material: "muro";
+    position: [0, 2.8, 5.95];
+}
+
+node "muro_izq" {
+    sdf: box(0.15, 2.8, 6);
+    material: "muro";
+    position: [-5.95, 2.8, 0];
+}
+
+node "muro_der" {
+    sdf: box(0.15, 2.8, 6);
+    material: "muro";
+    position: [5.95, 2.8, 0];
+}
+
+node "vitrales" {
+    sdf: box(0.06, 1.6, 1.2);
+    material: "vital_rojo";
+    position: [-5.8, 3.2, -3];
+    rotation: [0, 90, 0];
+}
+
+node "vitral2" {
+    sdf: box(0.06, 1.6, 1.2);
+    material: "vital_azul";
+    position: [-5.8, 3.2, 1];
+    rotation: [0, 90, 0];
+}
+
+node "vitral3" {
+    sdf: box(0.06, 1.6, 1.2);
+    material: "vital_verde";
+    position: [5.8, 3.2, -3];
+    rotation: [0, 90, 0];
+}
+
+node "vitral4" {
+    sdf: box(0.06, 1.6, 1.2);
+    material: "vital_rojo";
+    position: [5.8, 3.2, 1];
+    rotation: [0, 90, 0];
+}
+
+def "pilar" {
+    mode: solid;
+    sdf: cylinder(0.3, 5.6);
+    material: "columna_piedra";
+    position: [0, 0, 0];
+}
+
+node "columnas_izq" {
+    instance "pilar" { position: [-3.2, 2.8, -4.5]; }
+    instance "pilar" { position: [-3.2, 2.8, -2.7]; }
+    instance "pilar" { position: [-3.2, 2.8, -0.9]; }
+    instance "pilar" { position: [-3.2, 2.8, 0.9]; }
+    instance "pilar" { position: [-3.2, 2.8, 2.7]; }
+    instance "pilar" { position: [-3.2, 2.8, 4.5]; }
+}
+
+node "columnas_der" {
+    instance "pilar" { position: [3.2, 2.8, -4.5]; }
+    instance "pilar" { position: [3.2, 2.8, -2.7]; }
+    instance "pilar" { position: [3.2, 2.8, -0.9]; }
+    instance "pilar" { position: [3.2, 2.8, 0.9]; }
+    instance "pilar" { position: [3.2, 2.8, 2.7]; }
+    instance "pilar" { position: [3.2, 2.8, 4.5]; }
+}
+
+node "arco1" {
+    sdf: subtract(box(2, 1.5, 0.45), cylinder(0.8, 1.9));
+    material: "columna_piedra";
+    position: [-3.2, 4.7, -3.6];
+}
+
+node "arco2" {
+    sdf: subtract(box(2, 1.5, 0.45), cylinder(0.8, 1.9));
+    material: "columna_piedra";
+    position: [-3.2, 4.7, 0];
+}
+
+node "arco3" {
+    sdf: subtract(box(2, 1.5, 0.45), cylinder(0.8, 1.9));
+    material: "columna_piedra";
+    position: [-3.2, 4.7, 3.6];
+}
+
+node "arco4" {
+    sdf: subtract(box(2, 1.5, 0.45), cylinder(0.8, 1.9));
+    material: "columna_piedra";
+    position: [3.2, 4.7, -3.6];
+}
+
+node "arco5" {
+    sdf: subtract(box(2, 1.5, 0.45), cylinder(0.8, 1.9));
+    material: "columna_piedra";
+    position: [3.2, 4.7, 0];
+}
+
+node "arco6" {
+    sdf: subtract(box(2, 1.5, 0.45), cylinder(0.8, 1.9));
+    material: "columna_piedra";
+    position: [3.2, 4.7, 3.6];
+}
+
+node "escalón1" {
+    sdf: box(4, 0.2, 1.2);
+    material: "columna_piedra";
+    position: [0, 0.1, -4.4];
+}
+
+node "escalón2" {
+    sdf: box(3.4, 0.2, 1);
+    material: "columna_piedra";
+    position: [0, 0.3, -4.5];
+}
+
+node "altar" {
+    sdf: box(2, 0.8, 0.8);
+    material: "madera_oscura";
+    position: [0, 0.8, -4.6];
+}
+
+node "copón" {
+    sdf: sphere(0.35);
+    material: "oro";
+    position: [0, 1.5, -4.6];
+}
+
+node "vela1" {
+    sdf: cylinder(0.07, 0.5);
+    material: "vela";
+    position: [-0.7, 1.45, -4.5];
+}
+
+node "vela2" {
+    sdf: cylinder(0.07, 0.5);
+    material: "vela";
+    position: [0.7, 1.45, -4.5];
+}
+
+def "banco" {
+    mode: solid;
+    sdf: box(1.8, 0.4, 0.5);
+    material: "madera_oscura";
+    position: [0, 0, 0];
+}
+
+node "bancos" {
+    instance "banco" { position: [-1.2, 0.2, 3.5]; }
+    instance "banco" { position: [1.2, 0.2, 3.5]; }
+    instance "banco" { position: [-1.2, 0.2, 2.5]; }
+    instance "banco" { position: [1.2, 0.2, 2.5]; }
+}
+
+def "peana" {
+    mode: solid;
+    sdf: cylinder(0.4, 1);
+    material: "columna_piedra";
+    position: [0, 0, 0];
+}
+
+node "peanas" {
+    instance "peana" { position: [-4.5, 0.5, -2]; }
+    instance "peana" { position: [4.5, 0.5, -2]; }
+    instance "peana" { position: [-4.5, 0.5, 3]; }
+    instance "peana" { position: [4.5, 0.5, 3]; }
+    instance "peana" { position: [-4.5, 0.5, -4.5]; }
+    instance "peana" { position: [4.5, 0.5, -4.5]; }
+}
+
+node "escultura1" {
+    sdf: torus(0.35, 0.1);
+    material: "bronce";
+    position: [-4.5, 1.4, -2];
+    rotation: [75, 0, 0];
+}
+
+node "escultura2" {
+    sdf: octahedron(0.45);
+    material: "plata";
+    position: [4.5, 1.6, -2];
+}
+
+node "escultura3" {
+    sdf: cone(0.35, 0.9);
+    material: "oro";
+    position: [-4.5, 1.6, 3];
+}
+
+node "escultura4" {
+    sdf: rounded_box(0.3, 0.3, 0.3, 0.07);
+    material: "ceramica_azul";
+    position: [4.5, 1.5, 3];
+    rotation: [0, 45, 0];
+}
+
+node "escultura5" {
+    sdf: sphere(0.4);
+    material: "bronce";
+    position: [-4.5, 1.6, -4.5];
+}
+
+node "escultura6" {
+    sdf: cylinder(0.25, 0.8);
+    material: "plata";
+    position: [4.5, 1.6, -4.5];
+}
+
+node "lampara1" {
+    sdf: sphere(0.3);
+    material: "luminaria";
+    position: [-3.2, 5, 0];
+}
+
+node "lampara2" {
+    sdf: sphere(0.3);
+    material: "luminaria";
+    position: [3.2, 5, 0];
+}
+
+node "cable1" {
+    sdf: cylinder(0.03, 1);
+    material: "bronce";
+    position: [-3.2, 5.5, 0];
+}
+
+node "cable2" {
+    sdf: cylinder(0.03, 1);
+    material: "bronce";
+    position: [3.2, 5.5, 0];
+}

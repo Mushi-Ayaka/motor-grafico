@@ -211,6 +211,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR lpCmdLine, int) {
     // Check for --bench-vulkan (must check before --bench to avoid substring match)
     bool bench_vulkan = (lpCmdLine && strstr(lpCmdLine, "--bench-vulkan") != nullptr);
 
+    // Check for --stats: per-frame metrics -> stats/*.csv
+    bool stats_mode = (lpCmdLine && strstr(lpCmdLine, "--stats") != nullptr);
+
     // Check for --bench argument: visor.exe "<ruta.ont>" --bench
     if (lpCmdLine && !bench_vulkan && strstr(lpCmdLine, "--bench") != nullptr) {
         wchar_t path[MAX_PATH] = {0};
@@ -295,6 +298,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR lpCmdLine, int) {
     }
 
     app.bench_vulkan = bench_vulkan;
+    app.stats_mode = stats_mode;
     app.run();
     return 0;
 }

@@ -4,10 +4,14 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <algorithm>
+#include <cmath>
+#include <filesystem>
 #include <windows.h>
 #include <commdlg.h>
 #include "render/vulkan_core.h"
 #include "imgui.h"
+#include "imgui_internal.h" // v0.35: DockBuilder* para layout default
 #include "imgui_impl_win32.h"
 #include "imgui_impl_vulkan.h"
 #include "core/herm_bridge.h"
@@ -31,6 +35,7 @@ static void diag(const char* msg) {
 namespace mg {
 
 bool VisorApp::init(HINSTANCE hInst, const wchar_t* initial_scene) {
+    scene_path = initial_scene ? initial_scene : L"";
     // Open log next to exe (use app mode so logDiag from render.h can also append safely)
     {
         char exe_path[MAX_PATH];
@@ -470,6 +475,17 @@ void VisorApp::run() {
             toggle_held = false;
         }
 
+        // F2: oculta/muestra la UI ImGui (para grabar video limpio)
+        if (GetAsyncKeyState(VK_F2) & 0x8000) {
+            if (!ui_toggle_held) {
+                vk_ctx.ui_visible = !vk_ctx.ui_visible;
+                diag(vk_ctx.ui_visible ? "[UI] Overlay ON" : "[UI] Overlay OFF");
+                ui_toggle_held = true;
+            }
+        } else {
+            ui_toggle_held = false;
+        }
+
         // T-115: Ctrl+Z = Undo, Ctrl+Y = Redo
         bool ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
         if (ctrl) {
@@ -507,6 +523,9 @@ void VisorApp::run() {
         u32 rt = 0;
         if (dirty) {
             u32 r0 = GetTickCount();
+            LARGE_INTEGER qpc_r0, qpc_rf;
+            QueryPerformanceCounter(&qpc_r0);
+            QueryPerformanceFrequency(&qpc_rf);
             
             if (renderer.use_vulkan && renderer.ont_mode) {
                 // Check for viewport resize
@@ -516,8 +535,15 @@ void VisorApp::run() {
                 // Render at reduced scale for performance
                 int rw = (int)(vp_w * render_scale + 0.5f);
                 int rh = (int)(vp_h * render_scale + 0.5f);
+                // Escena con resolución fija (.obs axes X/Y): renderizar a esa resolución
+                if (renderer.ont_scene.has_obs && renderer.ont_scene.obs.has_resolution &&
+                    renderer.ont_scene.obs.width > 0 && renderer.ont_scene.obs.height > 0) {
+                    rw = (int)(renderer.ont_scene.obs.width  * render_scale + 0.5f);
+                    rh = (int)(renderer.ont_scene.obs.height * render_scale + 0.5f);
+                }
                 if (rw < 1) rw = 1;
                 if (rh < 1) rh = 1;
+                if (stats_mode) { stats_rw = (uint32_t)rw; stats_rh = (uint32_t)rh; }
                 if ((int)cur.width != vp_w || (int)cur.height != vp_h || cur.width == 0) {
                     {
                         char buf[256];
@@ -527,6 +553,14 @@ void VisorApp::run() {
                     }
                     vk_ctx.resizeSwapchain(vp_w, vp_h);
                     renderer.vk_scene.resizeOutputBuffer(rw, rh);
+                }
+                // El dispatch escribe rw*rh píxeles: el buffer debe tener ese tamaño exacto
+                {
+                    VkDeviceSize want = (VkDeviceSize)rw * (VkDeviceSize)rh * 4;
+                    if (renderer.vk_scene.output_buffer.buffer != VK_NULL_HANDLE &&
+                        renderer.vk_scene.output_buffer.size != want) {
+                        renderer.vk_scene.resizeOutputBuffer(rw, rh);
+                    }
                 }
 
                 // Start bench clock on first frame
@@ -573,6 +607,7 @@ void VisorApp::run() {
                 // --- ImGui frame (T-F6) ---
                 if (vk_ctx.imgui_enabled) {
                     ImGui_ImplWin32_NewFrame();
+                    ImGui_ImplVulkan_NewFrame(); // recrea font texture si fue destruida
                     ImGui::NewFrame();
                     ImGuiIO& io = ImGui::GetIO();
                     io.DisplaySize = ImVec2((float)workspace.active().w, (float)workspace.active().h);
@@ -580,7 +615,13 @@ void VisorApp::run() {
                     ImGui::Render();
                 }
 
-                vk_ctx.drawFrame(renderer.vk_scene, rw, rh);
+                // A2: capturar resultado de drawFrame — false = OUT_OF_DATE/SUBOPTIMAL → recrear swapchain
+                bool frame_ok = vk_ctx.drawFrame(renderer.vk_scene, rw, rh);
+                if (!frame_ok) {
+                    diag("[VK] drawFrame returned OUT_OF_DATE/SUBOPTIMAL — recreando swapchain");
+                    vk_ctx.resizeSwapchain(vp_w, vp_h);
+                    renderer.vk_scene.resizeOutputBuffer(rw, rh);
+                }
 
                 InvalidateRect(win.hwnd_viewport, nullptr, FALSE);
                 UpdateWindow(win.hwnd_viewport);
@@ -593,16 +634,47 @@ void VisorApp::run() {
 
             rt = GetTickCount() - r0;
             last_render_ms = rt;
+            {
+                LARGE_INTEGER qpc_r1;
+                QueryPerformanceCounter(&qpc_r1);
+                render_ms_qpc = (double)(qpc_r1.QuadPart - qpc_r0.QuadPart) * 1000.0 / (double)qpc_rf.QuadPart;
+            }
             if (!(renderer.use_vulkan && renderer.ont_mode) && !bench_vulkan) dirty = false;
         }
 
         // FPS counter — update once per second
         frame_count++;
+        if (stats_mode) {
+            LARGE_INTEGER qpc_now, qpc_freq;
+            QueryPerformanceCounter(&qpc_now);
+            QueryPerformanceFrequency(&qpc_freq);
+            // A2: contar solo frames con dispatch real (pipeline_ready && acquire OK)
+            bool did_render = (renderer.use_vulkan && renderer.ont_mode)
+                ? renderer.vk_scene.pipeline_ready
+                : true;
+            if (did_render) stats_frames_render++;
+            else            stats_frames_skip++;
+            if (stats_clock_started) {
+                double ms = (double)(qpc_now.QuadPart - stats_qpc_prev.QuadPart) * 1000.0 / (double)qpc_freq.QuadPart;
+                if (ms > 0.0 && ms < 60000.0) {
+                    stats_frame_ms.push_back(ms);
+                    stats_render_ms.push_back(render_ms_qpc);
+                    stats_gpu_ms.push_back(vk_ctx.last_gpu_ms);
+                }
+            }
+            stats_qpc_prev = qpc_now;
+            stats_clock_started = true;
+        }
         if (now - fps_last_tick > 1000) {
             fps = frame_count;
             frame_count = 0;
             fps_last_tick = now;
             snprintf(fps_text, sizeof(fps_text), "FPS: %u | render: %ums | pump: %ums | scale: %.2f", fps, last_render_ms, last_pump_ms, render_scale);
+
+            // A4: nvidia-smi polling 1Hz en modo --stats (gpu%, power, temp, vram, clocks)
+            if (stats_mode) {
+                pollNvidiaSmi();
+            }
         }
 
         // T-116: Update profiler stats every frame
@@ -662,6 +734,11 @@ void VisorApp::run() {
                 f64 avg_ms = total_ns / (f64)bench_frames / 1000000.0;
                 f64 avg_fps = 1000.0 / avg_ms;
                 int bw = workspace.active().w, bh = workspace.active().h;
+                if (renderer.ont_scene.has_obs && renderer.ont_scene.obs.has_resolution &&
+                    renderer.ont_scene.obs.width > 0 && renderer.ont_scene.obs.height > 0) {
+                    bw = (int)(renderer.ont_scene.obs.width  * render_scale + 0.5f);
+                    bh = (int)(renderer.ont_scene.obs.height * render_scale + 0.5f);
+                }
                 FILE* f = nullptr;
                 fopen_s(&f, "benchmark_result.txt", "w");
                 if (f) {
@@ -690,11 +767,12 @@ void VisorApp::run() {
             }
         }
 
-        // Adaptive sleep: skip in bench-vulkan mode
-        if (!bench_vulkan) {
+        // Adaptive sleep: skip in bench-vulkan / stats mode (medición honesta)
+        if (!bench_vulkan && !stats_mode) {
             Sleep(camera_moving ? 8 : 32);
         }
     }
+    if (stats_mode) writeStats();
     // On-close save
     if (!project_path.empty() && project.isDirty()) {
         project.applyFrom(renderer.scene);
@@ -702,6 +780,7 @@ void VisorApp::run() {
         project.saveBackup(project_path.c_str());
         project.clearDirty();
     }
+    if (vk_ctx.device) vkDeviceWaitIdle(vk_ctx.device);
     renderer.vk_scene.cleanup();
     vk_ctx.destroyViewportImage();
     if (vk_ctx.imgui_enabled) {
@@ -710,6 +789,238 @@ void VisorApp::run() {
     }
     vk_ctx.cleanup();
     win.destroy();
+}
+
+// ============================================================================
+// STATS (--stats): estadística de población por corrida -> stats/*.csv
+// ============================================================================
+
+// A4: nvidia-smi polling — una consulta por segundo, costo despreciable
+void VisorApp::pollNvidiaSmi() {
+    FILE* pipe = _popen(
+        "nvidia-smi --query-gpu=utilization.gpu,power.draw,temperature.gpu,memory.used,clocks.sm "
+        "--format=csv,noheader,nounits", "r");
+    if (!pipe) return;
+    char line[256] = {};
+    if (fgets(line, sizeof(line), pipe)) {
+        // Formato esperado: "45, 75.50, 62, 822, 1410" (separado por coma+espacio)
+        double u, p, t, m, c;
+        if (sscanf_s(line, "%lf, %lf, %lf, %lf, %lf", &u, &p, &t, &m, &c) == 5) {
+            gpu_util_pct = u;
+            gpu_power_w = p;
+            gpu_temp_c = t;
+            vram_used_mb = m;
+            gpu_clock_mhz = c;
+        }
+    }
+    _pclose(pipe);
+}
+
+void VisorApp::writeStats() {
+    if (stats_frame_ms.empty()) {
+        fprintf(stderr, "[STATS] Sin frames capturados.\n");
+        return;
+    }
+
+    size_t n = stats_frame_ms.size();
+    std::vector<double> f = stats_frame_ms;
+    std::sort(f.begin(), f.end());
+
+    double sum = 0.0;
+    for (double v : f) sum += v;
+    double mean = sum / (double)n;
+    double var = 0.0;
+    for (double v : f) { double d = v - mean; var += d * d; }
+    var /= (double)n;                       // varianza de POBLACIÓN (÷N)
+    double sd = std::sqrt(var);
+    double mn = f.front();
+    double mx = f.back();
+    double med = (n % 2) ? f[n / 2] : (f[n / 2 - 1] + f[n / 2]) / 2.0;
+    double p95 = f[(size_t)(0.95 * (double)(n - 1))];
+    double p99 = f[(size_t)(0.99 * (double)(n - 1))];
+    double cv = (mean > 0.0) ? (sd / mean) * 100.0 : 0.0;
+    double fps_mean = (mean > 0.0) ? 1000.0 / mean : 0.0;
+    double fps_1pct = (p99 > 0.0) ? 1000.0 / p99 : 0.0;
+    double total_s = 0.0;
+    for (double v : stats_frame_ms) total_s += v;
+    total_s /= 1000.0;
+
+    double r_mean = 0.0, r_p95 = 0.0, r_min = 0.0, r_max = 0.0;
+    if (!stats_render_ms.empty()) {
+        std::vector<double> r = stats_render_ms;
+        std::sort(r.begin(), r.end());
+        double s = 0.0;
+        for (double v : r) s += v;
+        r_mean = s / (double)r.size();
+        r_min = r.front();
+        r_max = r.back();
+        r_p95 = r[(size_t)(0.95 * (double)(r.size() - 1))];
+    }
+
+    // A1: estadísticas de GPU dispatch time (vkGetQueryPoolResults)
+    double g_mean = 0.0, g_p95 = 0.0, g_min = 0.0, g_max = 0.0;
+    if (!stats_gpu_ms.empty()) {
+        std::vector<double> g = stats_gpu_ms;
+        std::sort(g.begin(), g.end());
+        double s = 0.0;
+        for (double v : g) s += v;
+        g_mean = s / (double)g.size();
+        g_min = g.front();
+        g_max = g.back();
+        g_p95 = g[(size_t)(0.95 * (double)(g.size() - 1))];
+    }
+
+    // Nombre de escena (basename sin extensión)
+    char name_buf[512] = "desconocida";
+    if (!scene_path.empty()) {
+        std::wstring base = scene_path;
+        size_t slash = base.find_last_of(L"\\/");
+        if (slash != std::wstring::npos) base = base.substr(slash + 1);
+        size_t dot = base.rfind(L'.');
+        if (dot != std::wstring::npos) base = base.substr(0, dot);
+        WideCharToMultiByte(CP_UTF8, 0, base.c_str(), -1, name_buf, (int)sizeof(name_buf), nullptr, nullptr);
+    }
+    std::string scene_name = name_buf;
+
+    // Metadatos de escena
+    uint32_t nodes = 0, bvh = 0, mats = 0, bc = 0;
+    if (renderer.ont_scene.header) {
+        nodes = renderer.ont_scene.header->node_count;
+        bvh   = renderer.ont_scene.header->bvh_count;
+        mats  = renderer.ont_scene.header->material_count;
+        bc    = renderer.ont_scene.header->bytecode_size;
+    }
+
+    // GPU + timestamp
+    const char* gpu = vk_ctx.device_name[0] ? vk_ctx.device_name : "desconocido";
+    SYSTEMTIME st{};
+    GetLocalTime(&st);
+    char fecha[64];
+    sprintf_s(fecha, "%04u-%02u-%02u %02u:%02u:%02u",
+              st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+    char ts[64];
+    sprintf_s(ts, "%04u%02u%02u_%02u%02u%02u",
+              st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+
+    std::error_code ec;
+    std::filesystem::create_directories("stats", ec);
+
+    // --- 1) runs.csv (append, una fila por corrida) ---
+    bool header_new = !std::filesystem::exists("stats/runs.csv", ec);
+    FILE* fcsv = nullptr;
+    fopen_s(&fcsv, "stats/runs.csv", "a");
+    if (fcsv) {
+        if (header_new) {
+            fprintf(fcsv, "fecha,escena,vp_w,vp_h,escala,render_w,render_h,nodos,bvh,materiales,bytecode,gpu,"
+                          "frames,media_ms,mediana_ms,desv_pob_ms,var_pob_ms,min_ms,max_ms,rango_ms,"
+                          "p95_ms,p99_ms,cv_pct,fps_media,fps_1pct_low,"
+                          "render_media_ms,render_min_ms,render_max_ms,render_p95_ms,"
+                          "gpu_media_ms,gpu_min_ms,gpu_max_ms,gpu_p95_ms,frames_render,frames_skip,"
+                          "gpu_util_pct,gpu_power_w,gpu_temp_c,vram_mb,gpu_clock_mhz,total_s\n");
+        }
+        fprintf(fcsv,
+            "%s,\"%s\",%d,%d,%.2f,%u,%u,%u,%u,%u,%u,\"%s\","
+            "%zu,%.4f,%.4f,%.4f,%.6f,%.4f,%.4f,%.4f,"
+            "%.4f,%.4f,%.2f,%.3f,%.3f,"
+            "%.3f,%.3f,%.3f,%.3f,"
+            "%.3f,%.3f,%.3f,%.3f,%u,%u,"
+            "%.1f,%.2f,%.1f,%.1f,%.1f,%.3f\n",
+            fecha, scene_name.c_str(),
+            workspace.active().w, workspace.active().h, render_scale, stats_rw, stats_rh,
+            nodes, bvh, mats, bc, gpu,
+            n, mean, med, sd, var, mn, mx, mx - mn,
+            p95, p99, cv, fps_mean, fps_1pct,
+            r_mean, r_min, r_max, r_p95,
+            g_mean, g_min, g_max, g_p95, stats_frames_render, stats_frames_skip,
+            gpu_util_pct, gpu_power_w, gpu_temp_c, vram_used_mb, gpu_clock_mhz, total_s);
+        fclose(fcsv);
+    }
+
+    // --- 2) dump por frame: stats/run_<ts>_<escena>.csv ---
+    char per_path[640];
+    snprintf(per_path, sizeof(per_path), "stats/run_%s_%s.csv", ts, scene_name.c_str());
+    FILE* fpf = nullptr;
+    fopen_s(&fpf, per_path, "w");
+    if (fpf) {
+        fprintf(fpf, "frame,frame_ms,render_ms,gpu_ms\n");
+        for (size_t i = 0; i < stats_frame_ms.size(); i++) {
+            double rm = (i < stats_render_ms.size()) ? stats_render_ms[i] : 0.0;
+            double gm = (i < stats_gpu_ms.size())   ? stats_gpu_ms[i]   : 0.0;
+            fprintf(fpf, "%zu,%.4f,%.3f,%.3f\n", i, stats_frame_ms[i], rm, gm);
+        }
+        fclose(fpf);
+    }
+
+    // --- 3) Screenshot BMP (BGRA en memoria = orden BMP nativo, bottom-up) ---
+    char shot_path[640] = "";
+    {
+        vkDeviceWaitIdle(vk_ctx.device);
+        uint32_t sw = stats_rw, sh = stats_rh;
+        VkDeviceSize need = (VkDeviceSize)sw * (VkDeviceSize)sh * 4;
+        if (sw > 0 && sh > 0 &&
+            renderer.vk_scene.output_staging.buffer != VK_NULL_HANDLE &&
+            renderer.vk_scene.output_staging.size >= need) {
+            void* mapped = nullptr;
+            if (vmaMapMemory(vk_ctx.allocator, renderer.vk_scene.output_staging.allocation, &mapped) == VK_SUCCESS) {
+                snprintf(shot_path, sizeof(shot_path), "stats/shot_%s_%s.bmp", ts, scene_name.c_str());
+                FILE* fbmp = nullptr;
+                fopen_s(&fbmp, shot_path, "wb");
+                if (fbmp) {
+                    uint32_t row_bytes = sw * 4;
+                    uint32_t data_size = row_bytes * sh;
+                    uint32_t file_size = 54 + data_size;
+                    uint8_t hdr[54] = {};
+                    auto put16 = [&](int off, uint16_t v) { hdr[off] = (uint8_t)(v & 255); hdr[off + 1] = (uint8_t)(v >> 8); };
+                    auto put32 = [&](int off, uint32_t v) {
+                        hdr[off] = (uint8_t)(v & 255); hdr[off + 1] = (uint8_t)((v >> 8) & 255);
+                        hdr[off + 2] = (uint8_t)((v >> 16) & 255); hdr[off + 3] = (uint8_t)(v >> 24);
+                    };
+                    hdr[0] = 'B'; hdr[1] = 'M';
+                    put32(2, file_size);
+                    put32(10, 54);
+                    put32(14, 40);
+                    put32(18, sw);
+                    put32(22, sh);          // positivo = filas bottom-up
+                    put16(26, 1);           // planes
+                    put16(28, 32);          // bpp
+                    put32(30, 0);           // BI_RGB
+                    put32(34, data_size);
+                    fwrite(hdr, 1, 54, fbmp);
+                    const uint8_t* px = (const uint8_t*)mapped;
+                    for (int y = (int)sh - 1; y >= 0; y--)
+                        fwrite(px + (size_t)y * row_bytes, 1, row_bytes, fbmp);
+                    fclose(fbmp);
+                }
+                vmaUnmapMemory(vk_ctx.allocator, renderer.vk_scene.output_staging.allocation);
+            }
+        }
+    }
+
+    // --- 4) Resumen en consola ---
+    fprintf(stderr, "\n=== STATS: %s ===\n", scene_name.c_str());
+    fprintf(stderr, "GPU: %s | res render: %ux%u (escala %.2f, vp %dx%d)\n",
+            gpu, stats_rw, stats_rh, render_scale, workspace.active().w, workspace.active().h);
+    fprintf(stderr, "Escena: %u nodos, %u bvh, %u materiales, %u bytecode bytes\n",
+            nodes, bvh, mats, bc);
+    fprintf(stderr, "Frames: %zu (%u render / %u skip) en %.3f s\n", n, stats_frames_render, stats_frames_skip, total_s);
+    fprintf(stderr, "frame_ms  media=%.3f mediana=%.3f desv=%.3f (pob) var=%.4f cv=%.2f%%\n",
+            mean, med, sd, var, cv);
+    fprintf(stderr, "frame_ms  min=%.3f max=%.3f rango=%.3f p95=%.3f p99=%.3f\n",
+            mn, mx, mx - mn, p95, p99);
+    fprintf(stderr, "FPS       media=%.2f 1%%_low=%.2f\n", fps_mean, fps_1pct);
+    fprintf(stderr, "render_ms media=%.3f min=%.3f max=%.3f p95=%.3f\n",
+            r_mean, r_min, r_max, r_p95);
+    if (!stats_gpu_ms.empty()) {
+        fprintf(stderr, "gpu_ms    media=%.3f min=%.3f max=%.3f p95=%.3f\n",
+                g_mean, g_min, g_max, g_p95);
+    }
+    if (gpu_util_pct >= 0.0) {
+        fprintf(stderr, "GPUHW     util=%.0f%% power=%.1fW temp=%.0fC vram=%.0fMB clock=%.0fMHz\n",
+                gpu_util_pct, gpu_power_w, gpu_temp_c, vram_used_mb, gpu_clock_mhz);
+    }
+    fprintf(stderr, "Archivos: stats/runs.csv + %s", per_path);
+    if (shot_path[0]) fprintf(stderr, " + %s", shot_path);
+    fprintf(stderr, "\n");
 }
 
 void VisorApp::drawEditorUI() {
@@ -916,10 +1227,23 @@ void VisorApp::drawEditorUI() {
             }
             ImGui::EndMenu();
         }
-        // --- View ---
-        if (ImGui::BeginMenu("View")) {
-            ImGui::MenuItem("Console", nullptr, &console.visible);
-            ImGui::MenuItem("Editor .herm", nullptr, &herm_editor.visible);
+        // --- Window (v0.35): toggles por ventana; stubs deshabilitados ---
+        if (ImGui::BeginMenu("Window")) {
+            ImGui::MenuItem("Viewport",         nullptr, &show_viewport);
+            ImGui::MenuItem("Editor .herm",     nullptr, &herm_editor.visible);
+            ImGui::MenuItem("Properties",       nullptr, &show_properties);
+            ImGui::MenuItem("Console",          nullptr, &console.visible);
+            ImGui::Separator();
+            ImGui::MenuItem("Profiler",         nullptr, &profiler.visible);
+            ImGui::MenuItem("Ontology Tree",    nullptr, &ontology.visible);
+            ImGui::MenuItem("Inspector",        nullptr, &inspector.visible);
+            ImGui::MenuItem("Tensor Inspector", nullptr, &tensor_inspector.visible);
+            ImGui::MenuItem("Timeline",         nullptr, &timeline_panel.visible);
+            ImGui::MenuItem("Source Browser",   nullptr, &source_browser.visible);
+            ImGui::Separator();
+            ImGui::BeginDisabled(); // stub: escribe .bat con TODO
+            ImGui::MenuItem("Export Executable (stub)");
+            ImGui::EndDisabled();
             ImGui::EndMenu();
         }
         // --- Help ---
@@ -985,12 +1309,32 @@ void VisorApp::drawEditorUI() {
     ImGui::PopStyleVar(2);
 
     ImGuiID dockspace_id = ImGui::GetID("DockSpace");
+
+    // v0.35: layout default solo si no hay layout persistido (imgui.ini con [Docking])
+    if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr) {
+        ImGui::DockBuilderRemoveNode(dockspace_id);
+        ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
+
+        ImGuiID center = dockspace_id;
+        ImGuiID left   = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left,  0.25f, nullptr, &center);
+        ImGuiID right  = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.25f, nullptr, &center);
+        ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down,  0.28f, nullptr, &center);
+
+        ImGui::DockBuilderDockWindow("Editor .herm", left);
+        ImGui::DockBuilderDockWindow("Properties",   right);
+        ImGui::DockBuilderDockWindow("Console",      bottom);
+        ImGui::DockBuilderDockWindow("Viewport",     center);
+        ImGui::DockBuilderFinish(dockspace_id);
+        diag("[UI] DockSpace layout default creado (4 paneles)");
+    }
+
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
     ImGui::End();
 
     // T-120: Multi-viewport with tabs
     viewport_mgr.setDefaultDS(vk_ctx.viewport_ds);
-    if (ImGui::Begin("Viewport")) {
+    if (ImGui::Begin("Viewport", &show_viewport)) {
         // Tab bar
         if (ImGui::BeginTabBar("##viewport_tabs")) {
             for (int i = 0; i < (int)viewport_mgr.tabs.size(); i++) {
@@ -1037,9 +1381,9 @@ void VisorApp::drawEditorUI() {
             }
             ImGui::Text("Mode: %s", mode_str);
         }
-        ImGui::End();
     }
-    if (ImGui::Begin("Properties")) {
+    ImGui::End();
+    if (ImGui::Begin("Properties", &show_properties)) {
         ImGui::Text("Engine State: Running");
         ImGui::Text("Resolution: %ux%u", workspace.active().w, workspace.active().h);
         ImGui::Separator();
@@ -1072,12 +1416,11 @@ void VisorApp::drawEditorUI() {
         ImGui::Separator();
         ImGui::Text("Editor .herm:");
         ImGui::TextWrapped("%s", editor_status.c_str());
-        ImGui::End();
     }
-    if (ImGui::Begin("Hello ImGui")) { ImGui::Text("Integracion ImGui OK (T-F6)"); ImGui::End(); }
+    ImGui::End();
 
     // --- Editor de codigo .herm + live-compile (T-111) ---
-    if (ImGui::Begin("Editor .herm")) {
+    if (ImGui::Begin("Editor .herm", &herm_editor.visible)) {
         // Set compile callback (captures this via static lambda)
         static VisorApp* s_app = nullptr;
         s_app = this;
@@ -1143,8 +1486,8 @@ void VisorApp::drawEditorUI() {
         // Status in properties
         ImGui::SameLine();
         ImGui::Text("%s", editor_has_scene ? "preview: ON" : "preview: OFF");
-        ImGui::End();
     }
+    ImGui::End();
 
     // --- T-113: Console/Log panel ---
     console.draw();

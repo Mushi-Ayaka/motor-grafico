@@ -15,7 +15,7 @@ struct FileEntry {
 
 class SourceBrowser {
 public:
-    bool visible = true;
+    bool visible = false; // v0.35: oculto por default (se activa desde menú Window)
     std::string root_path;      // project root
     FileEntry root;
     FileEntry* selected = nullptr;

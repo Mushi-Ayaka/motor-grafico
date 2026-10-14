@@ -1,4 +1,4 @@
-# Contexto Motor Grafico — 2026-09-20
+# Contexto Motor Grafico — 2026-10-14
 
 ## Estado Actual
 
@@ -44,7 +44,52 @@ herm source → [CPU] compile → RIH bytecode
 - Tests: `test_f3.cpp` (16/16 pass)
 - Shader: `build/shaders/spirv_gen.spv`
 
+### F6: Escenas benchmark + stats (2026-10-09)
+- **5 escenas `.herm`** en `escenas/` (dificultad creciente, todas en un cuarto):
+  01_bodega_baja (480×270, 4 nodos), 02_sala (640×360, 10), 03_galeria (854×480, 19),
+  04_museo (1024×576, 28), 05_catedral (1280×720, 35). Resolución de la escena (`axes`) guía el render.
+- **`--stats` en visor**: `stats/runs.csv` (append, una fila por run con media/mediana/desv/p95/p99/cv/fps),
+  `stats/run_<ts>_<escena>.csv` (por frame) y screenshot `stats/shot_<ts>_<escena>.bmp`.
+  Sleep desactivado con --stats; timing por QPC (`render_ms_qpc`). Resolución de escritura: población (÷N).
+- **`.bat` de doble clic** (raíz): `correr_01...05.bat` (interactivo con stats al cerrar) y `benchmark_las_5.bat` (auto ~10s).
+- **Present mode MAILBOX > IMMEDIATE > FIFO** (FIFO capaba todo a 16.7ms).
+- Ladder medido (RTX 3060, render_ms media): 01=1.14, 02=1.55, 03=2.67, 04=3.78, 05=7.70 ms.
+
+### Fixes críticos 2026-10-09 (bugs de formato/orden)
+1. **`resolveSdfTree` violaba contrato rih.h** ("index 0 = root"): pushea hijos primero, raíz al final →
+   todos los consumidores (`herm_ont` bytecode/AABB/d_min, `herm_render`, `herm_bridge`, F3) compilaban
+   **el primer hijo** como raíz → `subtract` perdía el hijo B → habitaciones eran bloques sólidos (gris plano).
+   **Fix**: self-first push en `lenguaje-hermetico/herm/herm_resolver.cpp` (slot reservado, se rellena al final).
+2. **`tensor[7]` (alpha) en 0 si no hay `opacity:`** → `optimizeOntScene` (F1) cull-eaba todos los nodos
+   (`pad[0]|=0x4`) en el path in-memory. **Fix**: default `1.0` en `resolveMaterial`.
+3. **`herm_bridge` emitía bytecode compacto** (op + payload solo en CONST) pero TODO el consumidor
+   (execBcRaw, glsl_gen, spirv_gen, ri_optimizer `/5`) espera **5 bytes fijos por instrucción**.
+   **Fix**: `BytecodeBuilder::emit` emite op + 4 bytes de padding. Formato canónico = 5B/instrucción.
+4. Tests: F0 24/24, F1 10/10, F3 16/16 (tras fixes). `contrato/ont.h` sincronizado con layout del motor
+   (fix crash 0xC0000005 en loadOnt: tensor_buffer_size + tensor_slot). Parser acepta `type: directional`.
+5. Tool de debug: `tools/dump_glsl.cpp` (+`build/dump_glsl.exe`) — vuelca bytecode y GLSL especializado de un `.ont`.
+
 ## Fases Pendientes
+
+### Track A: Madurez del pipeline Vulkan (✅ COMPLETO 2026-10-11)
+Ver `docs/19-pipeline-madurez-optimizacion.md` para detalles completos.
+- **A1**: GPU timestamps (`VkQueryPool` + `vkCmdWriteTimestamp`) → columna `gpu_ms` en `runs.csv`
+- **A2**: Stats honestas (`frames_render`/`frames_skip`) + fix fence-reset-before-acquire + caller maneja `return false`
+- **A3**: Frames in flight = 2 + UBO ring (dynamic offset, `UBO_STRIDE=128`) + imgui fence per-frame
+- **A4**: stderr en `.bat` + nvidia-smi polling 1Hz en `--stats`
+- **A5**: Destrucción diferida en resize (PENDIENTE)
+
+**Ladder post-Track-A (gpu_ms mediana)**: 01=0.238, 02=0.817, 03=2.420, 04=3.609, 05=7.573 ms.
+GPU util 2-9%, power 28-67W (TGP 115W). GPU-bound en 04/05, CPU-bound en 01/02.
+
+### UI ImGui: Fix overlay + sistema de ventanas (✅ 2026-10-14, v0.35-beta)
+Ver `docs/20-ui-ventanas-layout.md` para detalles completos.
+- **UI.1/2**: Fix UI invisible — `initImGui` destruía la font texture prematuramente (`TexID=0`); agregado `ImGui_ImplVulkan_NewFrame()`
+- **UI.3**: Fix assert `Missing EndChild` — `ImGui::End()` dentro de `if (Begin())` en Viewport/Properties/Editor
+- **UI.4**: Hotkey **F2** = oculta overlay ImGui (barrera → PRESENT_SRC directo, video limpio)
+- **UI.5**: Menú **Window** con checkboxes (10 ventanas; Export=stub deshabilitado)
+- **UI.6**: **Layout default dockeado** (DockBuilder): Editor .herm izq 25%, Properties der 25%, Console abajo 28%, Viewport centro. Persistido en `imgui.ini`
+- **UI.7**: Paneles fuera del layout nacen ocultos (`visible=false` en headers)
 
 ### F4: Dynamic Pruner GPU
 - Compute shader para frustum/occlusion culling en GPU
@@ -75,15 +120,18 @@ herm source → [CPU] compile → RIH bytecode
 ## Build System
 
 - `build.bat` — builds visor.exe + test_ont_bridge.exe
-- `tests/build_f0_test.bat` — F0 tests
+- `build_libherm.bat` — herm sources → `build/libherm.lib` (rebuild obligatorio tras tocar `lenguaje-hermetico/herm/*.cpp` o `contrato/*`)
+- `..\lenguaje-hermetico\herm\build.bat` — herm.exe → `..\lenguaje-hermetico\build\herm.exe` (la copia en `herm\herm.exe` es STALE; siempre la de `build\`)
+- `tests/build_f0_test.bat` — F0 tests (build; el .exe va en `build/`)
 - `tests/build_f1_test.bat` — F1 tests
 - `tests/build_f3_test.bat` — F3 tests
 - Shaders compiled with: `glslc.exe render/*.comp -o build/shaders/*.spv`
+- Compilar escena: `..\lenguaje-hermetico\build\herm.exe "escenas\X.herm" --ont`
 
 ## Deuda Tecnica
 
 1. **ray_march.comp evalLeaf() es stub** — retorna 1e9 siempre. El VM path no esta implementado en GPU. El specialized path (F3) genera shaders inline pero no esta wired al visor ainda.
-2. **Material opacity no soportado en herm** — el parser descarta el campo `opacity: X`. Siempre es 1.0.
+2. **Material opacity**: parser/soporte `opacity: X` + default 1.0 (fix 2026-10-09). El shading GPU aún usa el fijo `ldir` — las luces `type: directional` de la escena no afectan el render.
 3. **OntGraphNode.flags no existe** — se usa `pad[0]` como flags byte (bit2=culled). Considerar agregar campo real.
 4. **glslc.exe como subprocess** — dependencia externa para compilar GLSL→SPIR-V. Podria moverse a runtime compilation con shaderc library.
 5. **F4/F5 no implementados** — frustum culling y analytic normals son prioridad para performance.

@@ -1,46 +1,106 @@
 # 08 — Changelog
 
-> **Vida del proyecto:** 4 de junio → 14 de julio de 2026 (v0.15–v0.27)
+> **Vida del proyecto:** 4 de junio de 2026 → 14 de octubre de 2026 (v0.15–v0.35-beta)
 
-## 2026-07-14 — v0.27 — Fix ODR en Pipeline Herm → Ont + Configuración Local
+## 2026-10-14 — v0.35-beta — UI: Fix overlay ImGui + sistema de ventanas y layout
 
 ### Resumen
 
-Esta versión corrige un crash crítico en el pipeline de compilación Herm → `.ont`: una violación ODR (One Definition Rule) entre `herm_ont.cpp` y `herm_render.cpp` causaba ACCESS_VIOLATION al escribir el archivo `.ont`. Se renombró `FlatNode` → `OntFlatNode` para eliminar el conflicto de linking.
+La UI ImGui (T-F6, v0.30-beta) nunca se había verificado visualmente. Esta sesión: (1) se diagnosticó y arregló por qué era **completamente invisible** (font texture destruida prematuramente + `ImGui_ImplVulkan_NewFrame()` ausente); (2) se arregló un assert `Missing EndChild` que crasheaba el visor al colapsar ventanas; (3) se agregó un **sistema de ventanas** con menú "Window" y un **layout dockeado por defecto** (DockBuilder) para que los paneles no floten sueltos.
 
-Además, se configuró el proyecto para esta máquina local: rutas relativas corregidas en los batch files de lanzamiento, y se añadió `debug_visor.bat` para depuración directa con escena `.ont`. El visor se reconstruyó exitosamente con `build.bat`.
+### Cambios
 
-### Pipeline Herm → `.ont`
+| ID | Cambio | Archivo | Descripción |
+|----|--------|---------|-------------|
+| UI.1 | Font texture fix | `render/vulkan_core.cpp` | `initImGui` creaba la textura de fuentes y la destruía inmediatamente (`ImGui_ImplVulkan_DestroyFontsTexture()`) → `TexID=0` → todos los draws bindeaban descriptor null → UI invisible. Eliminada la destrucción prematura. |
+| UI.2 | NewFrame Vulkan | `visor/visor_app.cpp` | Agregado `ImGui_ImplVulkan_NewFrame()` antes de `ImGui::NewFrame()` (recrea font texture si fue destruida). |
+| UI.3 | Fix assert Missing EndChild | `visor/visor_app.cpp` | `ImGui::End()` estaba **dentro** de `if (ImGui::Begin(...))` en las ventanas Viewport/Properties/Editor. Con ventana colapsada `Begin` retorna false y `End` no se ejecutaba → stack desbalanceado → assert. `End()` movido fuera del if. |
+| UI.4 | Hotkey F2 (hide UI) | `visor/visor_app.h/.cpp`, `render/vulkan_core.h/.cpp` | Flag runtime `ui_visible` en `VulkanContext`: cuando es false, la barrera va directo a `PRESENT_SRC` y se salta el pass ImGui (video limpio). F2 alterna. |
+| UI.5 | Menú Window | `visor/visor_app.cpp` | Reemplaza al menú "View". Checkboxes para las 10 ventanas funcionales (Viewport, Editor .herm, Properties, Console, Profiler, Ontology Tree, Inspector, Tensor Inspector, Timeline, Source Browser). "Export Executable (stub)" deshabilitado (gris). |
+| UI.6 | Layout default dockeado | `visor/visor_app.cpp` | `DockBuilder*` (imgui_internal.h): DockSpace de 4 paneles — Editor .herm (izq 25%), Properties (der 25%), Console (abajo 28%), Viewport (centro). Solo se aplica si `DockBuilderGetNode()==nullptr` (primera ejecución); después el usuario reordena y ImGui persiste en `imgui.ini`. |
+| UI.7 | Paneles ocultos por default | 6 headers `.h` | `visible=false` en profiler, ontology, inspector, tensor_inspector, timeline, source_browser (no están en el layout default). |
+| UI.8 | Eliminada "Hello ImGui" | `visor/visor_app.cpp` | Ventana de prueba T-F6 eliminada del draw. |
 
-| Problema | Causa | Fix |
-|----------|-------|-----|
-| Crash ACCESS_VIOLATION (0xC0000005) al escribir `.ont` | ODR: `herm_ont.cpp` y `herm_render.cpp` definían `struct FlatNode` con distintos layouts. MSVC vinculaba la especialización incorrecta de `std::vector<FlatNode>::push_back`. | Renombrar `FlatNode` → `OntFlatNode` en `herm_ont.cpp` |
-| Path `.ont` output basado en `rfind('.')` | `rfind('.')` en path con puntos adicionales fallaba | Usar `rfind(".herm")` para detectar extensión correcta |
+### Detalle técnico (por qué la UI era invisible)
 
-### Batch files del visor
+`ImGui_ImplVulkan_CreateFontsTexture()` sube el atlas de fuentes y asigna `io.Fonts->TexID = DescriptorSet`. `initImGui` (v0.30-beta) llamaba esto y acto seguido `ImGui_ImplVulkan_DestroyFontsTexture()`, que destruye la textura, la imagen view, la memoria y pone `TexID = 0`. Todo draw de ImGui bindea `pcmd->GetTexID()` como descriptor set → `VK_NULL_HANDLE` → nada visible. Además `ImGui_ImplVulkan_NewFrame()` (que recrea la textura si `DescriptorSet == null`) nunca se llamaba.
 
-| Archivo | Cambio | Descripción |
-|---------|--------|-------------|
-| `run_visor.bat` | Corregida ruta relativa | Quitado un nivel de `..\..\` — ahora apunta correctamente a `proyectos-index\...` |
-| `debug_visor.bat` | Nuevo | Lanza visor con escena `.ont`, espera cierre, muestra código de salida. Útil para ver errores de consola sin que la ventana se cierre. |
-| `build.bat` | Sin cambios funcionales | Ya compila correctamente con Vulkan SDK 1.4.350.0 + asmjit |
+### Detalle técnico (layout)
 
-### Estado del pipeline local
+`DockBuilderGetNode(dockspace_id) == nullptr` detecta primera ejecución (o `imgui.ini` borrado). El `imgui.ini` stale (sin sección `[Docking]`, `Size=46,32`) se borró para que el layout default arranque limpio. Después el usuario puede reordenerar libremente y `io.IniFilename` persiste.
 
-- El compilador Hermético (`herm.exe`) genera `.ont` + `.obs` correctamente (sin crash)
-- El visor (`visor.exe`) carga `.ont` con geometría y materiales PBR
-- Nota: las escenas de prueba (`test_minimo.herm`, `catedral_hermetica.herm`) existen solo en la máquina anterior, no localmente
+### Documentación
+
+- Nuevo: `docs/20-ui-ventanas-layout.md` (Technical Design: inventario de ventanas, criterios EARS, layout).
+- `docs/00-indice.md` actualizado.
+
+---
+
+## 2026-10-11 — v0.34-beta — Track A: Madurez del pipeline Vulkan (A1–A4)
+
+### Resumen
+
+Diagnóstico y corrección de la medición de performance del motor. Los "995fps" reportados y el "GPU rara en Task Manager" (solo motor 3D, sin memoria NVIDIA visible) eran **problemas de medición, no de hardware**: las stats medían iteraciones de loop (no renders), `fps = frame_count`, y no existía ningún GPU timestamp. Se implementa Track A del plan `docs/19-pipeline-madurez-optimizacion.md`: timestamps de GPU reales, stats honestas, frames in flight = 2, y telemetría de hardware.
+
+### Cambios
+
+| ID | Cambio | Archivo | Descripción |
+|----|--------|---------|-------------|
+| A1 | GPU timestamps | `render/vulkan_core.h/.cpp` | `VkQueryPool` con `FRAMES_IN_FLIGHT*2` queries (2 por slot) + `vkCmdWriteTimestamp` bracket alrededor del dispatch. Columna `gpu_ms` en `runs.csv` y `gpu_ms` en CSV por frame. Mide el trabajo real de GPU, inmune a acquire/ImGui/GDI. |
+| A2 | Stats honestas | `render/vulkan_core.cpp`, `visor/visor_app.h/.cpp` | `frames_render`/`frames_skip` en stats (solo frames con dispatch real). Fix: `vkResetFences` movido DESPUÉS del acquire exitoso (antes, un OUT_OF_DATE reseteaba el fence sin submit → deadlock potencial). Caller maneja `return false` de `drawFrame` → recrea swapchain. |
+| A3 | Frames in flight = 2 | `render/vulkan_core.h/.cpp`, `render/vulkan_pipeline.h/.cpp` | `FRAMES_IN_FLIGHT=2`: arrays de `in_flight_fence[]`, `image_available_sem[]`, `render_finished_sem[]`, `imgui_fence[]`, `compute_command_buffer[]`, `imgui_command_buffer[]`. UBO ring con `VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC` (2 slots, `UBO_STRIDE=128`), dynamic offset en `vkCmdBindDescriptorSets`. |
+| A4 | stderr + nvidia-smi | `correr_0*.bat`, `benchmark_las_5.bat`, `visor/visor_app.h/.cpp` | `.bat` capturan stderr → `stats/visor_stderr.log`. `pollNvidiaSmi()` 1Hz en `--stats`: `gpu_util_pct`, `gpu_power_w`, `gpu_temp_c`, `vram_used_mb`, `gpu_clock_mhz` → columnas en `runs.csv`. |
+
+### Bugs encontrados y corregidos en A3
+
+| Bug | Síntoma | Causa | Fix |
+|-----|---------|-------|-----|
+| UBO dynamic offset desalineado | `VK_ERROR_DEVICE_LOST` (qr=-4) | `sizeof(UboData)=96` no es múltiplo de `minUniformBufferOffsetAlignment=64` | `UBO_STRIDE=128` en `vulkan_pipeline.h` |
+| Descriptor UBO range completo | GPU fault por out-of-bounds | range=192 bytes con offset 96 → accede `[96, 288)` en buffer de 192 | range = `sizeof(UboData)` (un slot) |
+| ImGui cmd buffer single | Race condition con 2 frames en vuelo | `imgui_command_buffer` se reseteaba mientras el frame anterior ejecutaba en GPU | `imgui_command_buffer[FRAMES_IN_FLIGHT]` + `imgui_fence[FRAMES_IN_FLIGHT]` |
+| Timestamp queries sin reset | Validation: "query not reset" | `vkGetQueryPoolResults` en queries nunca reseteadas | `vkCmdResetQueryPool` antes de escribir + flag `timestamp_submitted[f]` |
+| Fence reseteado antes de acquire | Deadlock potencial en OUT_OF_DATE | `vkResetFences` se ejecutaba antes de `vkAcquireNextImageKHR`; si el acquire fallaba, fence quedaba sin señalar y sin submit | Reset movido a justo antes de `vkQueueSubmit` |
+
+### Ladder post-Track-A (gpu_ms mediana, RTX 3060 Laptop)
+
+| Escena | gpu_ms | gpu_p95 | render_ms (CPU) | util GPU | power |
+|--------|--------|---------|-----------------|----------|-------|
+| 01_bodega_baja | 0.238 ms | 0.256 ms | 3.097 ms | 5% | 28 W |
+| 02_sala | 0.817 ms | 0.914 ms | 1.568 ms | 3% | 28 W |
+| 03_galeria | 2.420 ms | 2.949 ms | 2.867 ms | 9% | 36 W |
+| 04_museo | 3.609 ms | 4.365 ms | 3.764 ms | 2% | 67 W |
+| 05_catedral | 7.573 ms | 9.770 ms | 7.249 ms | 2% | 39 W |
+
+- `frames_render=200, frames_skip=0` en todas las escenas → stats 100% honestas.
+- **GPU-bound** en 04/05 (`render_ms ≈ gpu_ms`), **CPU-bound** en 01/02 (`render_ms >> gpu_ms` por overhead Vulkan).
+- GPU 2–9% util, 28–67 W de 115 W TGP → motor muy lejos de saturar la GPU.
+
+### Tests
+
+F0 24/24 ✓, F1 10/10 ✓, F3 16/16 ✓ (tras A1–A4).
 
 ### Archivos modificados
 
 | Archivo | Cambio |
 |---------|--------|
-| `run_visor.bat` | Ruta relativa corregida (1 nivel menos) |
-| `debug_visor.bat` | Creado: lanza visor con escena `.ont` y pausa al salir |
+| `docs/19-pipeline-madurez-optimizacion.md` | Creado: plan completo Track A/B/C con diagnóstico y criterios |
+| `render/vulkan_core.h` | `FRAMES_IN_FLIGHT=2`, arrays per-frame, `timestamp_pool`, `timestamp_submitted[]`, `last_gpu_ms`, `current_frame`, `imgui_fence[]` |
+| `render/vulkan_core.cpp` | Query pool en `init()`, per-frame sync en `drawFrame()`, timestamps bracket, fix fence, imgui fence, cleanup de arrays |
+| `render/vulkan_pipeline.h` | `UBO_STRIDE=128` |
+| `render/vulkan_pipeline.cpp` | UBO ring (dynamic offset), descriptor `UNIFORM_BUFFER_DYNAMIC`, range=`sizeof(UboData)` |
+| `visor/visor_app.h` | `stats_gpu_ms[]`, `stats_frames_render/skip`, campos nvidia-smi, `pollNvidiaSmi()` |
+| `visor/visor_app.cpp` | `pollNvidiaSmi()`, stats honestas, `drawFrame` return handling, columnas nuevas en `writeStats()` |
+| `correr_01..05.bat`, `benchmark_las_5.bat` | stderr → `2>> stats/visor_stderr.log`, `mkdir stats` |
+| `CONTEXT.md` | Track A completado, ladder post-A, fecha actualizada |
+
+### Pendiente
+
+- **A5**: destrucción diferida en resize (reemplazar `vkDeviceWaitIdle`).
+- **Track B**: B1 normales analíticas → B2 BrickMap GPU → B3 d_min real → B4 Dynamic Pruner → B5 subgroup early-exit → B6 temporal reproyección.
 
 ---
 
-## 2026-09-15 — Sprint 2: Anomaly Gate, Thread-Safety, Timeline, Gizmos, Undo/Redo
+## 2026-09-15 — v0.33-beta — Sprint 2: Anomaly Gate, Thread-Safety, Timeline, Gizmos, Undo/Redo
 
 ### S2.6: Anomaly Gate completa
 - `visor/anomaly_gate.h`: ANOMALY_MAX_TENSOR_SLOTS=65536, validateTensorSlots()
@@ -68,7 +128,7 @@ Además, se configuró el proyecto para esta máquina local: rutas relativas cor
 - `visor/undo_redo.cpp`: executeCommand(), undo(), redo(), undoDescription(), redoDescription()
 - `visor/visor_app.cpp`: Todas las llamadas actualizadas al nuevo API
 
-## 2026-09-15 — Sprint 0 + Sprint 1: Builder Spec v2.4 Implementation
+## 2026-09-15 — v0.32-beta — Sprint 0 + Sprint 1: Builder Spec v2.4 Implementation
 
 ### Sprint 0: Specs (5 documents)
 
@@ -104,7 +164,7 @@ Además, se configuró el proyecto para esta máquina local: rutas relativas cor
 - `core/systems.cpp`: CameraSystem implementation (WASD movement, tensor_delta[0])
 - `visor/visor_app.cpp`: Systems execution in play_mode, snapshot + deltas + apply
 
-## 2026-09-03 — T-114/T-117/T-118/T-119/T-120: Features v1 completas
+## 2026-09-03 — v0.31-beta — T-114/T-117/T-118/T-119/T-120: Features v1 completas
 
 ### Resumen
 Se implementan las 5 features faltantes para v1 completa: .mgproj Save/Load, Source Browser + Export, Readback/Staging, Command Palette, Multi-viewport.
@@ -136,6 +196,14 @@ Se implementan las 5 features faltantes para v1 completa: .mgproj Save/Load, Sou
 | Cambio | Archivo | Descripción |
 |--------|---------|-------------|
 | ViewportManager | `visor/viewport_manager.h/.cpp` | Tabs ilimitados, modo Render/IR/Tensor, botón "+". |
+
+## 2026-09-04 — v0.30-beta — UI completa del motor gráfico hermético
+
+> **Nota de agrupación:** tag `v0.30-beta` (commit `917e4d3`, 2026-09-04). Agrupa las entradas
+> siguientes (T-112 → T-F1.2b, fechas 2026-09-02 … 2026-09-03): shell MenuBar/Toolbar/DockSpace,
+> viewport ImGui::Image, editor `.herm`, paneles (console/profiler/ontology/inspector/gizmos/
+> tensor inspector/undo-redo), scheduler + input bus + anomaly gate y el puente `Rih → OntScene`.
+> Las entradas anteriores a este bloque son v0.28 (bootstrap) y v0.29 (puente CPU), sin tag.
 
 ## 2026-09-03 — T-112: Tensor Inspector (M29)
 
@@ -277,8 +345,6 @@ Se extiende el shell del editor con MenuBar funcional (File/Edit/View/Help) y To
 
 ## 2026-09-03 — T-115: Undo/Redo por diffs de AST
 
-## 2026-09-03 — T-115: Undo/Redo por diffs de AST
-
 ### Resumen
 Se implementa Undo/Redo (Ctrl+Z/Ctrl+Y) que guarda snapshots del source code después de cada compile exitoso. El sistema guarda hasta 100 estados y permite navegar el historial.
 
@@ -297,8 +363,6 @@ Se implementa Undo/Redo (Ctrl+Z/Ctrl+Y) que guarda snapshots del source code des
 
 ## 2026-09-03 — T-113: Scene Validation + Console/Log panel
 
-## 2026-09-03 — T-113: Scene Validation + Console/Log panel
-
 ### Resumen
 Se extiende el Anomaly Gate con validaciones adicionales (transform non-finite, camera fov, light intensity, material name duplicates, scale=0) y se crea el panel Console/Log (M26) para mostrar anomalías y logs.
 
@@ -309,8 +373,6 @@ Se extiende el Anomaly Gate con validaciones adicionales (transform non-finite, 
 | Anomaly Gate extended | `visor/anomaly_gate.cpp` | +validateAST: transform non-finite, scale=0, camera fov invalid, light intensity non-finite/<0, material name duplicates. |
 | Wire en editor | `visor/visor_app.cpp/.h` | `ConsolePanel console` miembro de `VisorApp`. Init logs + draw panel. |
 | Build | `build.bat` | +console_panel.cpp. |
-
-## 2026-09-03 — T-110: Scheduler + Input Bus + Anomaly Gate
 
 ## 2026-09-03 — T-110: Scheduler + Input Bus + Anomaly Gate
 
@@ -351,7 +413,7 @@ Se implementa el editor de código `.herm` mejorado con line numbers, file I/O (
 - **Ctrl+S**: compila inline (misma lógica que el botón Compile).
 - **Buffer**: 64KB (`text_buf[65536]`). Para archivos más grandes, se necesitaallocación dinámica (v2).
 
-## 2026-09-02 — T-F1.2b: puente `herm::Rih → mg::OntScene` (GPU/Vulkan)
+## 2026-09-02 — T-F6: ImGui overlay + DockSpace en el visor
 
 ### Resumen
 Se integra `ImGui_ImplVulkan` en el contexto de render (`vk_ctx`) como overlay sobre el swapchain, con un dockspace y paneles base en el editor. Build OK (pendiente verificación visual en GPU).
@@ -392,7 +454,7 @@ Se implementa el puente `herm::Rih` → `mg::OntScene` para habilitar el live-co
 - **BVH v1 simplificado**: un solo root leaf conteniendo todos los nodos (como `loadDefault`). BVH real (SAH split) queda para v2.
 - **Limitaciones conocidas**: expresiones animadas → constante 0; `repeat`/`twist`/`elongate`/`displace` ≈ passthrough (sin modificación real del campo); smooth_union usa promediado (no blend suavizado con k). Estas limitaciones son aceptables para v1 (live-preview básico).
 
-## 2026-08-29 (tarde) — T-F1.2: puente `herm::Rih → mg::Scene` + live-compile en editor
+## 2026-08-29 (tarde) — v0.29 — T-F1.2: puente `herm::Rih → mg::Scene` + live-compile en editor
 
 ### Resumen
 Se implementa el **puente** que faltaba para T-F1.2: `herm::Rih` (tensor 1×8) →
@@ -414,7 +476,7 @@ live-compile del buffer y reconstruye la escena (vía `scene_mgr.rebuildScene`).
 - **No se usa `mg::loadRih`**: cargar el `.rih` de herm con el loader PBR dispara el bug de `skipValue` (bucle infinito) y no coincide el esquema. El puente evita ese loader por completo.
 - **Limitación conocida**: expresiones animadas en `tensor`/params caen a constante 0 en la conversión (mg::Material no tiene campos expr). `roughness`/`metallic`/`emission` por defecto. Instancias con `def_id` resuelven vía tabla id→id (best-effort). Preview es el path CPU (`renderFrame`); el path Vulkan usa `OntScene`, pendiente de un puente `→ OntScene` (siguiente sub-paso).
 
-## 2026-08-28 — v0.27 — Bootstrap del Editor (deps, librería de live-compile, roadmap UI/UX)
+## 2026-08-28 — v0.28 — Bootstrap del Editor (deps, librería de live-compile, roadmap UI/UX)
 
 ### Resumen
 
@@ -442,6 +504,44 @@ UI/UX con una hoja de ruta de tareas ordenada y con dependencias.
 - El motor **ya consume RIH en memoria** (`core/rih_reader.cpp`, `core/sdf_eval.cpp`), por lo
   que el live-preview usará RIH directo (sin writer `.ont`). `libherm` solo debe emitir `herm::Rih`.
 - `herm_render.cpp` emite `.png` (CPU); se excluyó de `libherm` porque tira de `stb_image_write`.
+
+---
+
+## 2026-07-14 — v0.27 — Fix ODR en Pipeline Herm → Ont + Configuración Local
+
+### Resumen
+
+Esta versión corrige un crash crítico en el pipeline de compilación Herm → `.ont`: una violación ODR (One Definition Rule) entre `herm_ont.cpp` y `herm_render.cpp` causaba ACCESS_VIOLATION al escribir el archivo `.ont`. Se renombró `FlatNode` → `OntFlatNode` para eliminar el conflicto de linking.
+
+Además, se configuró el proyecto para esta máquina local: rutas relativas corregidas en los batch files de lanzamiento, y se añadió `debug_visor.bat` para depuración directa con escena `.ont`. El visor se reconstruyó exitosamente con `build.bat`.
+
+### Pipeline Herm → `.ont`
+
+| Problema | Causa | Fix |
+|----------|-------|-----|
+| Crash ACCESS_VIOLATION (0xC0000005) al escribir `.ont` | ODR: `herm_ont.cpp` y `herm_render.cpp` definían `struct FlatNode` con distintos layouts. MSVC vinculaba la especialización incorrecta de `std::vector<FlatNode>::push_back`. | Renombrar `FlatNode` → `OntFlatNode` en `herm_ont.cpp` |
+| Path `.ont` output basado en `rfind('.')` | `rfind('.')` en path con puntos adicionales fallaba | Usar `rfind(".herm")` para detectar extensión correcta |
+
+### Batch files del visor
+
+| Archivo | Cambio | Descripción |
+|---------|--------|-------------|
+| `run_visor.bat` | Corregida ruta relativa | Quitado un nivel de `..\..\` — ahora apunta correctamente a `proyectos-index\...` |
+| `debug_visor.bat` | Nuevo | Lanza visor con escena `.ont`, espera cierre, muestra código de salida. Útil para ver errores de consola sin que la ventana se cierre. |
+| `build.bat` | Sin cambios funcionales | Ya compila correctamente con Vulkan SDK 1.4.350.0 + asmjit |
+
+### Estado del pipeline local
+
+- El compilador Hermético (`herm.exe`) genera `.ont` + `.obs` correctamente (sin crash)
+- El visor (`visor.exe`) carga `.ont` con geometría y materiales PBR
+- Nota: las escenas de prueba (`test_minimo.herm`, `catedral_hermetica.herm`) existen solo en la máquina anterior, no localmente
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `run_visor.bat` | Ruta relativa corregida (1 nivel menos) |
+| `debug_visor.bat` | Creado: lanza visor con escena `.ont` y pausa al salir |
 
 ---
 

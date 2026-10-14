@@ -19,7 +19,7 @@ struct ProfilerStats {
 
 class ProfilerPanel {
 public:
-    bool visible = true;
+    bool visible = false; // v0.35: oculto por default (se activa desde menú Window)
     ProfilerStats stats;
 
     // History for mini graph (last 120 frames)

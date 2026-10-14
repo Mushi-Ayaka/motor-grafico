@@ -1,0 +1,129 @@
+scene "02 Sala" {
+    axes { X: 640, Y: 360, W: 1 }
+    camera {
+        position: [0, 1.7, 4.2];
+        target: [0, 0.9, -0.5];
+        up: [0, 1, 0];
+        fov: 55;
+    }
+    background: [0.03, 0.03, 0.05];
+}
+
+light "luz_principal" {
+    type: directional;
+    direction: [0.4, 0.85, 0.3];
+    color: [1, 0.96, 0.9];
+    intensity: 0.7;
+}
+
+light "lampara" {
+    type: point;
+    position: [-2, 3, 2];
+    color: [1, 0.85, 0.6];
+    intensity: 0.6;
+    falloff: 0.08;
+}
+
+material "pared" {
+    base_color: [0.6, 0.57, 0.5];
+    roughness: 0.9;
+    metallic: 0.0;
+}
+
+material "madera" {
+    base_color: [0.35, 0.22, 0.12];
+    roughness: 0.6;
+    metallic: 0.0;
+}
+
+material "cobre" {
+    base_color: [0.72, 0.45, 0.2];
+    roughness: 0.25;
+    metallic: 1.0;
+}
+
+material "ceramica" {
+    base_color: [0.7, 0.15, 0.12];
+    roughness: 0.2;
+    metallic: 0.0;
+}
+
+material "acero" {
+    base_color: [0.75, 0.75, 0.78];
+    roughness: 0.35;
+    metallic: 1.0;
+}
+
+material "obsidiana" {
+    base_color: [0.06, 0.06, 0.08];
+    roughness: 0.15;
+    metallic: 0.2;
+}
+
+def "pata" {
+    mode: solid;
+    sdf: cylinder(0.06, 0.75);
+    material: "madera";
+    position: [0, 0, 0];
+}
+
+node "cuarto" {
+    sdf: subtract(box(6, 2.9, 6), box(5.8, 2.8, 5.8));
+    material: "pared";
+    position: [0, 2.8, 0];
+}
+
+node "mesa" {
+    node "tablero" {
+        sdf: box(1.2, 0.06, 0.7);
+        material: "madera";
+        position: [0, 0.81, 0];
+    }
+    instance "pata" { position: [-1, 0.375, -0.55]; }
+    instance "pata" { position: [1, 0.375, -0.55]; }
+    instance "pata" { position: [-1, 0.375, 0.55]; }
+    instance "pata" { position: [1, 0.375, 0.55]; }
+}
+
+node "toro_cobre" {
+    sdf: torus(0.35, 0.1);
+    material: "cobre";
+    position: [-0.5, 0.97, 0];
+}
+
+node "esfera_ceramica" {
+    sdf: sphere(0.18);
+    material: "ceramica";
+    position: [0.4, 1.05, 0.1];
+}
+
+node "esfera_grande" {
+    sdf: sphere(0.7);
+    material: "acero";
+    position: [1.9, 0.7, -1.2];
+}
+
+node "cono" {
+    sdf: cone(0.4, 1.0);
+    material: "obsidiana";
+    position: [-2, 0.5, -1.4];
+}
+
+node "bolita1" {
+    sdf: sphere(0.3);
+    material: "ceramica";
+    position: [-1.5, 0.3, 1.4];
+}
+
+node "bolita2" {
+    sdf: sphere(0.22);
+    material: "cobre";
+    position: [0.2, 0.22, 1.8];
+}
+
+node "bloque" {
+    sdf: rounded_box(0.4, 0.3, 0.4, 0.08);
+    material: "acero";
+    position: [1.6, 0.3, 1.2];
+    rotation: [0, 30, 0];
+}

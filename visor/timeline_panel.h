@@ -6,7 +6,7 @@ namespace mg {
 
 class TimelinePanel {
 public:
-    bool visible = true;
+    bool visible = false; // v0.35: oculto por default (se activa desde menú Window)
 
     void draw(scene::Timeline& timeline);
 

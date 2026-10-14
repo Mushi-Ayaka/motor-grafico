@@ -1,0 +1,295 @@
+scene "04 Museo" {
+    axes { X: 1024, Y: 576, W: 1 }
+    camera {
+        position: [0, 1.8, 5];
+        target: [0, 1.5, -3.5];
+        up: [0, 1, 0];
+        fov: 60;
+    }
+    background: [0.02, 0.02, 0.04];
+}
+
+light "sol" {
+    type: directional;
+    direction: [0.45, 0.8, 0.35];
+    color: [1, 0.96, 0.88];
+    intensity: 0.6;
+}
+
+light "hall" {
+    type: point;
+    position: [0, 4.5, 0];
+    color: [1, 0.9, 0.7];
+    intensity: 0.55;
+    falloff: 0.05;
+}
+
+light "vitrina" {
+    type: point;
+    position: [-3, 1.5, -4];
+    color: [0.6, 0.75, 1];
+    intensity: 0.4;
+    falloff: 0.08;
+}
+
+material "piso_piedra" {
+    base_color: [0.28, 0.27, 0.3];
+    roughness: 0.3;
+    metallic: 0.0;
+}
+
+material "pared" {
+    base_color: [0.58, 0.55, 0.5];
+    roughness: 0.9;
+    metallic: 0.0;
+}
+
+material "techo" {
+    base_color: [0.35, 0.34, 0.33];
+    roughness: 0.95;
+    metallic: 0.0;
+}
+
+material "columna" {
+    base_color: [0.68, 0.65, 0.6];
+    roughness: 0.55;
+    metallic: 0.0;
+}
+
+material "madera" {
+    base_color: [0.33, 0.2, 0.11];
+    roughness: 0.55;
+    metallic: 0.0;
+}
+
+material "oro" {
+    base_color: [1.0, 0.85, 0.4];
+    roughness: 0.2;
+    metallic: 1.0;
+}
+
+material "bronce" {
+    base_color: [0.62, 0.48, 0.24];
+    roughness: 0.3;
+    metallic: 1.0;
+}
+
+material "acero" {
+    base_color: [0.72, 0.73, 0.76];
+    roughness: 0.35;
+    metallic: 1.0;
+}
+
+material "ceramica_verde" {
+    base_color: [0.15, 0.5, 0.3];
+    roughness: 0.2;
+    metallic: 0.0;
+}
+
+material "ceramica_roja" {
+    base_color: [0.65, 0.14, 0.1];
+    roughness: 0.2;
+    metallic: 0.0;
+}
+
+material "libro_azul" {
+    base_color: [0.12, 0.2, 0.45];
+    roughness: 0.7;
+    metallic: 0.0;
+}
+
+material "piedra_oscura" {
+    base_color: [0.15, 0.15, 0.17];
+    roughness: 0.6;
+    metallic: 0.0;
+}
+
+material "lampara" {
+    base_color: [0.9, 0.85, 0.7];
+    roughness: 0.4;
+    metallic: 0.0;
+    emission: [1.0, 0.88, 0.6];
+}
+
+node "piso" {
+    sdf: box(6, 0.1, 6);
+    material: "piso_piedra";
+    position: [0, -0.1, 0];
+}
+
+node "techo" {
+    sdf: box(6, 0.1, 6);
+    material: "techo";
+    position: [0, 5.6, 0];
+}
+
+node "pared_fondo" {
+    sdf: subtract(box(6, 2.8, 0.15), box(3, 1.3, 0.5));
+    material: "pared";
+    position: [0, 2.8, -5.95];
+}
+
+node "pared_cerca" {
+    sdf: box(6, 2.8, 0.15);
+    material: "pared";
+    position: [0, 2.8, 5.95];
+}
+
+node "pared_izq" {
+    sdf: box(0.15, 2.8, 6);
+    material: "pared";
+    position: [-5.95, 2.8, 0];
+}
+
+node "pared_der" {
+    sdf: box(0.15, 2.8, 6);
+    material: "pared";
+    position: [5.95, 2.8, 0];
+}
+
+def "pilar" {
+    mode: solid;
+    sdf: cylinder(0.28, 5.6);
+    material: "columna";
+    position: [0, 0, 0];
+}
+
+node "columnas" {
+    instance "pilar" { position: [-3, 2.8, -4]; }
+    instance "pilar" { position: [3, 2.8, -4]; }
+    instance "pilar" { position: [-3, 2.8, -1.5]; }
+    instance "pilar" { position: [3, 2.8, -1.5]; }
+    instance "pilar" { position: [-3, 2.8, 1]; }
+    instance "pilar" { position: [3, 2.8, 1]; }
+    instance "pilar" { position: [-3, 2.8, 3.5]; }
+    instance "pilar" { position: [3, 2.8, 3.5]; }
+}
+
+node "arco1" {
+    sdf: subtract(box(2.6, 1.4, 0.5), cylinder(0.9, 1.7));
+    material: "columna";
+    position: [-3, 4.6, -1.5];
+}
+
+node "arco2" {
+    sdf: subtract(box(2.6, 1.4, 0.5), cylinder(0.9, 1.7));
+    material: "columna";
+    position: [3, 4.6, 1];
+}
+
+node "mesa1" {
+    sdf: box(2, 0.5, 0.8);
+    material: "madera";
+    position: [-1.8, 0.25, -3];
+}
+
+node "mesa2" {
+    sdf: box(2, 0.5, 0.8);
+    material: "madera";
+    position: [1.8, 0.25, -3];
+}
+
+node "obj_mesa1_a" {
+    sdf: sphere(0.2);
+    material: "ceramica_verde";
+    position: [-2.4, 0.7, -3];
+}
+
+node "obj_mesa1_b" {
+    sdf: rounded_box(0.22, 0.22, 0.22, 0.05);
+    material: "oro";
+    position: [-1.8, 0.72, -3];
+    rotation: [0, 30, 0];
+}
+
+node "obj_mesa1_c" {
+    sdf: torus(0.2, 0.06);
+    material: "bronce";
+    position: [-1.2, 0.66, -3];
+}
+
+node "obj_mesa2_a" {
+    sdf: sphere(0.18);
+    material: "ceramica_roja";
+    position: [1.3, 0.68, -3];
+}
+
+node "obj_mesa2_b" {
+    sdf: cone(0.2, 0.5);
+    material: "acero";
+    position: [1.9, 0.85, -3];
+}
+
+node "obj_mesa2_c" {
+    sdf: octahedron(0.24);
+    material: "oro";
+    position: [2.4, 0.74, -3];
+}
+
+node "pedestal_central" {
+    sdf: cylinder(0.5, 1.2);
+    material: "piedra_oscura";
+    position: [0, 0.6, -1];
+}
+
+node "estatua" {
+    sdf: union(union(sphere(0.5), box(0.45, 1.1, 0.3)), cylinder(0.3, 0.8));
+    material: "acero";
+    position: [0, 2, -1];
+}
+
+node "biblioteca_base" {
+    sdf: box(2.4, 0.1, 0.5);
+    material: "madera";
+    position: [4.8, 1.6, -4.5];
+}
+
+node "biblioteca1" {
+    sdf: box(2.4, 0.1, 0.5);
+    material: "madera";
+    position: [4.8, 2.4, -4.5];
+}
+
+node "biblioteca2" {
+    sdf: box(2.4, 0.1, 0.5);
+    material: "madera";
+    position: [4.8, 3.2, -4.5];
+}
+
+node "libros1" {
+    sdf: box(0.7, 0.5, 0.3);
+    material: "libro_azul";
+    position: [4.2, 1.9, -4.5];
+    rotation: [0, 3, 0];
+}
+
+node "libros2" {
+    sdf: box(0.6, 0.5, 0.3);
+    material: "ceramica_roja";
+    position: [4.9, 1.9, -4.5];
+}
+
+node "libros3" {
+    sdf: box(0.65, 0.5, 0.3);
+    material: "libro_azul";
+    position: [4.4, 2.7, -4.5];
+    rotation: [0, -4, 0];
+}
+
+node "libros4" {
+    sdf: box(0.55, 0.5, 0.3);
+    material: "ceramica_verde";
+    position: [5.1, 2.7, -4.5];
+}
+
+node "lampara1" {
+    sdf: sphere(0.25);
+    material: "lampara";
+    position: [-3, 4.9, -4];
+}
+
+node "lampara2" {
+    sdf: sphere(0.25);
+    material: "lampara";
+    position: [3, 4.9, 1];
+}

@@ -95,14 +95,42 @@ bool VulkanContext::init(HWND hwnd) {
         return false;
     }
 
-    // Select Physical Device
+    // Select Physical Device — prefer discrete GPU (metrics need the fast one)
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
     if (deviceCount == 0) return false;
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-    
-    physical_device = devices[0]; // Simple selection
+
+    {
+        int best = -1;
+        int best_score = -1;
+        for (uint32_t i = 0; i < deviceCount; i++) {
+            VkPhysicalDeviceProperties props{};
+            vkGetPhysicalDeviceProperties(devices[i], &props);
+            int type = (int)props.deviceType;
+            int score = 0;
+            if (type == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) score = 3;
+            else if (type == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) score = 2;
+            else if (type == VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU) score = 1;
+            else score = 0;
+            if (props.limits.maxComputeWorkGroupInvocations > 0 && score >= 2)
+                score += (props.limits.maxComputeWorkGroupInvocations / 1024); // tiebreak by CU
+            char buf[320];
+            sprintf_s(buf, "[VK] GPU[%u]: %s (type=%d, score=%d)", i, props.deviceName, type, score);
+            std::cerr << buf << std::endl;
+            if (score > best_score) { best_score = score; best = (int)i; }
+        }
+        if (best < 0) best = 0;
+        physical_device = devices[best];
+        VkPhysicalDeviceProperties chosen{};
+        vkGetPhysicalDeviceProperties(physical_device, &chosen);
+        strcpy_s(device_name, chosen.deviceName);
+        char buf2[320];
+        sprintf_s(buf2, "[VK] GPU ACTIVO: %s (discrete=%d)", device_name,
+                  chosen.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
+        std::cerr << buf2 << std::endl;
+    }
 
     // Find Queue Families
     uint32_t queueFamilyCount = 0;
@@ -204,11 +232,32 @@ bool VulkanContext::init(HWND hwnd) {
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = command_pool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.commandBufferCount = FRAMES_IN_FLIGHT;
 
-    if (vkAllocateCommandBuffers(device, &allocInfo, &compute_command_buffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(device, &allocInfo, compute_command_buffer) != VK_SUCCESS) {
         std::cerr << "Failed to allocate command buffers!" << std::endl;
         return false;
+    }
+
+    // --- A1: GPU timestamps — VkQueryPool para medir el dispatch real ---
+    {
+        VkPhysicalDeviceProperties props{};
+        vkGetPhysicalDeviceProperties(physical_device, &props);
+        timestamp_period_ns = props.limits.timestampPeriod;
+        if (timestamp_period_ns > 0.0f) {
+            VkQueryPoolCreateInfo qpci{};
+            qpci.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+            qpci.queryType = VK_QUERY_TYPE_TIMESTAMP;
+            qpci.queryCount = FRAMES_IN_FLIGHT * 2; // 2 queries por frame en vuelo
+            if (vkCreateQueryPool(device, &qpci, nullptr, &timestamp_pool) == VK_SUCCESS) {
+                std::cerr << "[VK] Timestamp pool created (period=" << timestamp_period_ns << " ns/tick, " << FRAMES_IN_FLIGHT*2 << " queries)" << std::endl;
+            } else {
+                std::cerr << "[VK] Failed to create timestamp query pool" << std::endl;
+                timestamp_pool = VK_NULL_HANDLE;
+            }
+        } else {
+            std::cerr << "[VK] GPU does not report timestampPeriod — GPU timings disabled" << std::endl;
+        }
     }
 
     std::cerr << "[VK] init() complete — GPU ready" << std::endl;
@@ -278,7 +327,28 @@ bool VulkanContext::initSwapchain(uint32_t width, uint32_t height) {
 
     createInfo.preTransform = capabilities.currentTransform;
     createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    createInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    // Present mode: MAILBOX (sin cap FPS, sin tearing) > IMMEDIATE > FIFO (vsync)
+    {
+        VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
+        uint32_t pm_count = 0;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &pm_count, nullptr);
+        std::vector<VkPresentModeKHR> pmodes(pm_count);
+        if (pm_count > 0) {
+            vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &pm_count, pmodes.data());
+        }
+        auto has_mode = [&](VkPresentModeKHR m) {
+            for (VkPresentModeKHR p : pmodes) if (p == m) return true;
+            return false;
+        };
+        const char* pm_name = "FIFO";
+        if (has_mode(VK_PRESENT_MODE_MAILBOX_KHR)) {
+            present_mode = VK_PRESENT_MODE_MAILBOX_KHR; pm_name = "MAILBOX";
+        } else if (has_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)) {
+            present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR; pm_name = "IMMEDIATE";
+        }
+        createInfo.presentMode = present_mode;
+        std::cerr << "[VK] Present mode: " << pm_name << std::endl;
+    }
     createInfo.clipped = VK_TRUE;
 
     if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain) != VK_SUCCESS) {
@@ -315,12 +385,18 @@ bool VulkanContext::initSwapchain(uint32_t width, uint32_t height) {
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    if (    vkCreateSemaphore(device, &semaphoreInfo, nullptr, &image_available_sem) != VK_SUCCESS ||
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_finished_sem) != VK_SUCCESS ||
-        vkCreateFence(device, &fenceInfo, nullptr, &in_flight_fence) != VK_SUCCESS) {
-        std::cerr << "Failed to create sync objects!" << std::endl;
-        return false;
+    bool sync_ok = true;
+    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &image_available_sem[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_finished_sem[i]) != VK_SUCCESS ||
+            vkCreateFence(device, &fenceInfo, nullptr, &in_flight_fence[i]) != VK_SUCCESS ||
+            vkCreateFence(device, &fenceInfo, nullptr, &imgui_fence[i]) != VK_SUCCESS) {
+            std::cerr << "Failed to create sync objects!" << std::endl;
+            sync_ok = false;
+            break;
+        }
     }
+    if (!sync_ok) return false;
 
     if (imgui_enabled) createImguiFramebuffers();
 
@@ -397,8 +473,8 @@ bool VulkanContext::initImGui(HWND hwnd) {
     cbAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cbAlloc.commandPool = imgui_command_pool;
     cbAlloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    cbAlloc.commandBufferCount = 1;
-    if (vkAllocateCommandBuffers(device, &cbAlloc, &imgui_command_buffer) != VK_SUCCESS) {
+    cbAlloc.commandBufferCount = FRAMES_IN_FLIGHT;
+    if (vkAllocateCommandBuffers(device, &cbAlloc, imgui_command_buffer) != VK_SUCCESS) {
         std::cerr << "[IMGUI] Failed to allocate command buffer" << std::endl;
         return false;
     }
@@ -429,10 +505,9 @@ bool VulkanContext::initImGui(HWND hwnd) {
         return false;
     }
 
-    // Upload font atlas (backend creates its own command buffer internally)
+    // Upload font atlas (backend crea su propio command buffer, sube y espera internamente).
+    // NO llamar DestroyFontsTexture(): destruye la textura y pone TexID=0 → draws con descriptor null.
     ImGui_ImplVulkan_CreateFontsTexture();
-    vkQueueWaitIdle(graphics_queue);
-    ImGui_ImplVulkan_DestroyFontsTexture();
 
     createImguiFramebuffers();
     imgui_enabled = true;
@@ -473,16 +548,23 @@ void VulkanContext::shutdownImGui() {
     imgui_render_pass = VK_NULL_HANDLE;
     imgui_descriptor_pool = VK_NULL_HANDLE;
     imgui_command_pool = VK_NULL_HANDLE;
-    imgui_command_buffer = VK_NULL_HANDLE;
+    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) imgui_command_buffer[i] = VK_NULL_HANDLE;
     imgui_present_sem = VK_NULL_HANDLE;
     imgui_enabled = false;
 }
 
 void VulkanContext::cleanupSwapchain() {
     vkDeviceWaitIdle(device);
-    if (image_available_sem) vkDestroySemaphore(device, image_available_sem, nullptr);
-    if (render_finished_sem) vkDestroySemaphore(device, render_finished_sem, nullptr);
-    if (in_flight_fence) vkDestroyFence(device, in_flight_fence, nullptr);
+    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
+        if (image_available_sem[i]) vkDestroySemaphore(device, image_available_sem[i], nullptr);
+        if (render_finished_sem[i]) vkDestroySemaphore(device, render_finished_sem[i], nullptr);
+        if (in_flight_fence[i]) vkDestroyFence(device, in_flight_fence[i], nullptr);
+        if (imgui_fence[i]) vkDestroyFence(device, imgui_fence[i], nullptr);
+        image_available_sem[i] = VK_NULL_HANDLE;
+        render_finished_sem[i] = VK_NULL_HANDLE;
+        in_flight_fence[i] = VK_NULL_HANDLE;
+        imgui_fence[i] = VK_NULL_HANDLE;
+    }
 
     for (auto imageView : swapchain_image_views) {
         vkDestroyImageView(device, imageView, nullptr);
@@ -497,6 +579,8 @@ void VulkanContext::cleanupSwapchain() {
 void VulkanContext::cleanup() {
     if (instance == VK_NULL_HANDLE) return;
     vkDeviceWaitIdle(device);
+    if (timestamp_pool) { vkDestroyQueryPool(device, timestamp_pool, nullptr); timestamp_pool = VK_NULL_HANDLE; }
+    destroyReadbackBuffer();
     cleanupSwapchain();
     if (command_pool) vkDestroyCommandPool(device, command_pool, nullptr);
     if (allocator) vmaDestroyAllocator(allocator);
@@ -561,20 +645,50 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
         std::cerr << "[VK] drawFrame skipped: pipeline not ready" << std::endl;
         return true; // not an error, just not ready yet
     }
-    vkWaitForFences(device, 1, &in_flight_fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &in_flight_fence);
+
+    uint32_t f = current_frame;
+    vkWaitForFences(device, 1, &in_flight_fence[f], VK_TRUE, UINT64_MAX);
+    // A3: esperar también el fence de ImGui (graphics queue) antes de reusar su command buffer
+    if (imgui_fence[f]) vkWaitForFences(device, 1, &imgui_fence[f], VK_TRUE, UINT64_MAX);
+
+    // A1: leer los timestamps del frame anterior (ya disponibles tras el fence wait)
+    // Cada slot tiene su rango de queries: slot f usa queries [f*2, f*2+1]
+    // Skip si el slot aún no tuvo un submit con timestamps (evita "query not reset")
+    double frame_gpu_ms = 0.0;
+    if (timestamp_pool && timestamp_submitted[f]) {
+        uint64_t ts[2] = {0, 0};
+        uint32_t qbase = f * 2;
+        VkResult qr = vkGetQueryPoolResults(device, timestamp_pool, qbase, 2,
+            sizeof(ts), ts, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+        if (qr == VK_SUCCESS && ts[1] >= ts[0]) {
+            frame_gpu_ms = (double)(ts[1] - ts[0]) * (double)timestamp_period_ns / 1000000.0;
+        }
+    }
+    last_gpu_ms = frame_gpu_ms;
 
     uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_available_sem, VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_available_sem[f], VK_NULL_HANDLE, &imageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        // A2: NO resetear el fence aquí — solo se resetea antes del submit.
+        // Así el próximo vkWaitForFences vuelve a esperar el último submit completo (sin deadlock).
         return false;
     }
 
-    vkResetCommandBuffer(compute_command_buffer, 0);
+    // Resetear el fence recién ahora que sabemos que vamos a submeter
+    vkResetFences(device, 1, &in_flight_fence[f]);
+
+    vkResetCommandBuffer(compute_command_buffer[f], 0);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    vkBeginCommandBuffer(compute_command_buffer, &beginInfo);
+    vkBeginCommandBuffer(compute_command_buffer[f], &beginInfo);
+
+    // A1: resetear las queries de este slot antes de escribir (requerido por Vulkan)
+    if (timestamp_pool) {
+        uint32_t qbase = f * 2;
+        vkCmdResetQueryPool(compute_command_buffer[f], timestamp_pool, qbase, 2);
+        vkCmdWriteTimestamp(compute_command_buffer[f], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, timestamp_pool, qbase);
+    }
 
     if (test_pattern) {
         // TEST MODE: skip compute, fill swapchain with solid red
@@ -590,20 +704,20 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
         toTransfer.subresourceRange.layerCount = 1;
         toTransfer.srcAccessMask = 0;
         toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        vkCmdPipelineBarrier(compute_command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &toTransfer);
+        vkCmdPipelineBarrier(compute_command_buffer[f], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &toTransfer);
 
         VkClearColorValue red;
         red.float32[0] = 1.0f; red.float32[1] = 0.0f; red.float32[2] = 0.0f; red.float32[3] = 1.0f;
         VkImageSubresourceRange range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        vkCmdClearColorImage(compute_command_buffer, swapchain_images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &red, 1, &range);
+        vkCmdClearColorImage(compute_command_buffer[f], swapchain_images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &red, 1, &range);
 
         VkImageMemoryBarrier toPresent = toTransfer;
         toPresent.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        toPresent.newLayout = imgui_enabled ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        toPresent.newLayout = (imgui_enabled && ui_visible) ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         toPresent.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        toPresent.dstAccessMask = imgui_enabled ? VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT : 0;
-        vkCmdPipelineBarrier(compute_command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            imgui_enabled ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        toPresent.dstAccessMask = (imgui_enabled && ui_visible) ? VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT : 0;
+        vkCmdPipelineBarrier(compute_command_buffer[f], VK_PIPELINE_STAGE_TRANSFER_BIT,
+            (imgui_enabled && ui_visible) ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             0, 0, nullptr, 0, nullptr, 1, &toPresent);
     } else {
         {
@@ -619,19 +733,22 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
                 first = false;
             }
         }
-        scene_data.recordComputeCommandBuffer(compute_command_buffer, render_w, render_h);
+        scene_data.recordComputeCommandBuffer(compute_command_buffer[f], render_w, render_h);
 
         // Compute Shader to Swapchain Copy barrier
         VkBufferImageCopy region{};
         region.bufferOffset = 0;
-        region.bufferRowLength = 0;
+        region.bufferRowLength = render_w; // filas del buffer con 'render_w' texels
         region.bufferImageHeight = 0;
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.mipLevel = 0;
         region.imageSubresource.baseArrayLayer = 0;
         region.imageSubresource.layerCount = 1;
         region.imageOffset = {0, 0, 0};
-        region.imageExtent = {render_w, render_h, 1};
+        // Clamp al tamaño del swapchain (la imagen puede ser más grande: 1280x720 vs ventana)
+        uint32_t copy_w = render_w < swapchain_extent.width  ? render_w : swapchain_extent.width;
+        uint32_t copy_h = render_h < swapchain_extent.height ? render_h : swapchain_extent.height;
+        region.imageExtent = {copy_w, copy_h, 1};
 
         VkImageMemoryBarrier barrierToTransfer{};
         barrierToTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -648,7 +765,7 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
         barrierToTransfer.srcAccessMask = 0;
         barrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
-        vkCmdPipelineBarrier(compute_command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrierToTransfer);
+        vkCmdPipelineBarrier(compute_command_buffer[f], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrierToTransfer);
 
         // Make compute shader output visible to buffer→image copy
         VkBufferMemoryBarrier computeToCopyBarrier{};
@@ -660,56 +777,62 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
         computeToCopyBarrier.buffer = scene_data.output_buffer.buffer;
         computeToCopyBarrier.offset = 0;
         computeToCopyBarrier.size = scene_data.output_buffer.size;
-        vkCmdPipelineBarrier(compute_command_buffer,
+        vkCmdPipelineBarrier(compute_command_buffer[f],
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             0, 0, nullptr, 1, &computeToCopyBarrier, 0, nullptr);
 
         // Copy Buffer to Image
-        vkCmdCopyBufferToImage(compute_command_buffer, scene_data.output_buffer.buffer, swapchain_images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        vkCmdCopyBufferToImage(compute_command_buffer[f], scene_data.output_buffer.buffer, swapchain_images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
         // T-102: Also copy to viewport image for ImGui::Image
-        copyOutputToViewport(compute_command_buffer, scene_data.output_buffer.buffer, render_w, render_h);
+        copyOutputToViewport(compute_command_buffer[f], scene_data.output_buffer.buffer, render_w, render_h);
 
         // T-118: Request readback of output buffer (throttled)
-        requestReadback(compute_command_buffer, scene_data.output_buffer.buffer, render_w * render_h * 4);
+        requestReadback(compute_command_buffer[f], scene_data.tensor_buffer.buffer, 8 * sizeof(float));
 
         // Transfer to Present / ImGui-Attachment Layout
         VkImageMemoryBarrier barrierToPresent = barrierToTransfer;
         barrierToPresent.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrierToPresent.newLayout = imgui_enabled ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        barrierToPresent.newLayout = (imgui_enabled && ui_visible) ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         barrierToPresent.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrierToPresent.dstAccessMask = imgui_enabled ? VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT : 0;
+        barrierToPresent.dstAccessMask = (imgui_enabled && ui_visible) ? VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT : 0;
 
-        vkCmdPipelineBarrier(compute_command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            imgui_enabled ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        vkCmdPipelineBarrier(compute_command_buffer[f], VK_PIPELINE_STAGE_TRANSFER_BIT,
+            (imgui_enabled && ui_visible) ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             0, 0, nullptr, 0, nullptr, 1, &barrierToPresent);
     }
 
-    vkEndCommandBuffer(compute_command_buffer);
+    // A1: timestamp después del dispatch + copias (query slot+1)
+    if (timestamp_pool) {
+        vkCmdWriteTimestamp(compute_command_buffer[f], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, timestamp_pool, f * 2 + 1);
+    }
+
+    vkEndCommandBuffer(compute_command_buffer[f]);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    VkSemaphore waitSemaphores[] = {image_available_sem};
+    VkSemaphore waitSemaphores[] = {image_available_sem[f]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &compute_command_buffer;
-    VkSemaphore signalSemaphores[] = {render_finished_sem};
+    submitInfo.pCommandBuffers = &compute_command_buffer[f];
+    VkSemaphore signalSemaphores[] = {render_finished_sem[f]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    vkQueueSubmit(compute_queue, 1, &submitInfo, in_flight_fence);
+    vkQueueSubmit(compute_queue, 1, &submitInfo, in_flight_fence[f]);
+    timestamp_submitted[f] = true; // A1: este slot ya tiene timestamps escritos
 
-    VkSemaphore presentWaitSem = render_finished_sem;
+    VkSemaphore presentWaitSem = render_finished_sem[f];
 
     // ImGui overlay pass (graphics queue) draws on top of the SDF image
-    if (imgui_enabled && ImGui::GetDrawData() != nullptr) {
-        vkResetCommandBuffer(imgui_command_buffer, 0);
+    if (imgui_enabled && ui_visible && ImGui::GetDrawData() != nullptr) {
+        vkResetCommandBuffer(imgui_command_buffer[f], 0);
         VkCommandBufferBeginInfo gbBegin{};
         gbBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        vkBeginCommandBuffer(imgui_command_buffer, &gbBegin);
+        vkBeginCommandBuffer(imgui_command_buffer[f], &gbBegin);
 
         VkRenderPassBeginInfo rpBegin{};
         rpBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -718,11 +841,11 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
         rpBegin.renderArea.offset = {0, 0};
         rpBegin.renderArea.extent = swapchain_extent;
         rpBegin.clearValueCount = 0;
-        vkCmdBeginRenderPass(imgui_command_buffer, &rpBegin, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(imgui_command_buffer[f], &rpBegin, VK_SUBPASS_CONTENTS_INLINE);
 
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imgui_command_buffer);
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imgui_command_buffer[f]);
 
-        vkCmdEndRenderPass(imgui_command_buffer);
+        vkCmdEndRenderPass(imgui_command_buffer[f]);
 
         VkImageMemoryBarrier toPresent{};
         toPresent.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -738,12 +861,12 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
         toPresent.subresourceRange.layerCount = 1;
         toPresent.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         toPresent.dstAccessMask = 0;
-        vkCmdPipelineBarrier(imgui_command_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        vkCmdPipelineBarrier(imgui_command_buffer[f], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &toPresent);
 
-        vkEndCommandBuffer(imgui_command_buffer);
+        vkEndCommandBuffer(imgui_command_buffer[f]);
 
-        VkSemaphore gWaitSems[] = {render_finished_sem};
+        VkSemaphore gWaitSems[] = {render_finished_sem[f]};
         VkPipelineStageFlags gWaitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
         VkSubmitInfo gSubmit{};
         gSubmit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -751,11 +874,13 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
         gSubmit.pWaitSemaphores = gWaitSems;
         gSubmit.pWaitDstStageMask = gWaitStages;
         gSubmit.commandBufferCount = 1;
-        gSubmit.pCommandBuffers = &imgui_command_buffer;
+        gSubmit.pCommandBuffers = &imgui_command_buffer[f];
         VkSemaphore gSigSems[] = {imgui_present_sem};
         gSubmit.signalSemaphoreCount = 1;
         gSubmit.pSignalSemaphores = gSigSems;
-        vkQueueSubmit(graphics_queue, 1, &gSubmit, VK_NULL_HANDLE);
+        // A3: resetear y usar el fence per-frame de ImGui (evita reset del command buffer en vuelo)
+        if (imgui_fence[f]) vkResetFences(device, 1, &imgui_fence[f]);
+        vkQueueSubmit(graphics_queue, 1, &gSubmit, imgui_fence[f] ? imgui_fence[f] : VK_NULL_HANDLE);
 
         presentWaitSem = imgui_present_sem;
     }
@@ -770,6 +895,9 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
     presentInfo.pImageIndices = &imageIndex;
 
     vkQueuePresentKHR(graphics_queue, &presentInfo);
+
+    // A3: avanzar al siguiente slot de frame en vuelo
+    current_frame = (current_frame + 1) % FRAMES_IN_FLIGHT;
 
     return true;
 }
@@ -947,6 +1075,7 @@ bool VulkanContext::initReadbackBuffer(VkDeviceSize size) {
     // Map the buffer for CPU access
     vmaMapMemory(allocator, readback_alloc, &readback_mapped);
     readback_ready = true;
+    readback_size = size;
     std::cerr << "[VK] Readback buffer: " << size << " bytes" << std::endl;
     return true;
 }
@@ -962,12 +1091,14 @@ void VulkanContext::destroyReadbackBuffer() {
         readback_alloc = VK_NULL_HANDLE;
     }
     readback_ready = false;
+    readback_size = 0;
 }
 
 void VulkanContext::requestReadback(VkCommandBuffer cmd, VkBuffer source_buffer, VkDeviceSize size) {
-    if (!readback_ready) {
-        // Lazy init: 8 floats * 1024 nodes max
-        initReadbackBuffer(8 * 1024 * sizeof(float));
+    if (!readback_ready || readback_size < size) {
+        // Lazy init / grow to fit requested size (T-118: 8 floats * 1024 nodes max)
+        initReadbackBuffer(size < 8 * 1024 * sizeof(float) ? 8 * 1024 * sizeof(float) : size);
+        if (!readback_ready) return;
     }
 
     readback_frame_count++;

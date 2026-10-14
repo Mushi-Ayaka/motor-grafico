@@ -61,3 +61,855 @@
 [LAYOUT] client=1264x681 -> vp=974x617
 [LAYOUT] client=1264x681 -> vp=974x617
 [SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[DISPATCH] dispatch size: 974x617, output buffer size: 2403832
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[DISPATCH] dispatch size: 974x617, output buffer size: 2403832
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[DISPATCH] dispatch size: 974x617, output buffer size: 2403832
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[DISPATCH] dispatch size: 974x617, output buffer size: 2403832
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[DISPATCH] dispatch size: 974x617, output buffer size: 2403832
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[DISPATCH] dispatch size: 974x617, output buffer size: 2403832
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(1024, 576)
+[DISPATCH] dispatch size: 1024x576, output buffer size: 2359296
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(1024, 576)
+[DISPATCH] dispatch size: 1024x576, output buffer size: 2359296
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(1024, 576)
+[DISPATCH] dispatch size: 1024x576, output buffer size: 2359296
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1024, 576)
+[DISPATCH] dispatch size: 1024x576, output buffer size: 2359296
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[SWAPCHAIN] requested=2270x1305, currentExtent=2270x1305 -> actual=2270x1305
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1024, 576)
+[DISPATCH] dispatch size: 1024x576, output buffer size: 2359296
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1024, 576)
+[DISPATCH] dispatch size: 1024x576, output buffer size: 2359296
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1024, 576)
+[DISPATCH] dispatch size: 1024x576, output buffer size: 2359296
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1024, 576)
+[DISPATCH] dispatch size: 1024x576, output buffer size: 2359296
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(640, 360)
+[DISPATCH] dispatch size: 640x360, output buffer size: 921600
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1024, 576)
+[DISPATCH] dispatch size: 1024x576, output buffer size: 2359296
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(1280, 720)
+[DISPATCH] dispatch size: 1280x720, output buffer size: 3686400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(480, 270)
+[DISPATCH] dispatch size: 480x270, output buffer size: 518400
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[SWAPCHAIN] requested=2270x1305, currentExtent=2270x1305 -> actual=2270x1305
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[SWAPCHAIN] requested=2270x1305, currentExtent=2270x1305 -> actual=2270x1305
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x675 -> vp=974x611
+[LAYOUT] client=1264x669 -> vp=974x605
+[LAYOUT] client=1264x666 -> vp=974x602
+[LAYOUT] client=1264x664 -> vp=974x600
+[LAYOUT] client=1264x662 -> vp=974x598
+[LAYOUT] client=1264x660 -> vp=974x596
+[LAYOUT] client=1264x659 -> vp=974x595
+[LAYOUT] client=1264x657 -> vp=974x593
+[SWAPCHAIN] requested=974x593, currentExtent=974x593 -> actual=974x593
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[BUF] resizeOutputBuffer(256, 144)
+[BUF] resizeOutputBuffer(85, 48)
+[BUF] resizeOutputBuffer(171, 96)
+[BUF] resizeOutputBuffer(256, 144)
+[BUF] resizeOutputBuffer(342, 192)
+[BUF] resizeOutputBuffer(427, 240)
+[BUF] resizeOutputBuffer(512, 288)
+[BUF] resizeOutputBuffer(683, 384)
+[BUF] resizeOutputBuffer(769, 432)
+[BUF] resizeOutputBuffer(854, 480)
+[BUF] resizeOutputBuffer(939, 528)
+[BUF] resizeOutputBuffer(1025, 576)
+[BUF] resizeOutputBuffer(1196, 672)
+[BUF] resizeOutputBuffer(1366, 768)
+[BUF] resizeOutputBuffer(1452, 816)
+[BUF] resizeOutputBuffer(1366, 768)
+[BUF] resizeOutputBuffer(1281, 720)
+[BUF] resizeOutputBuffer(1110, 624)
+[BUF] resizeOutputBuffer(939, 528)
+[BUF] resizeOutputBuffer(854, 480)
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[LAYOUT] client=1264x681 -> vp=974x617
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680
+[BUF] resizeOutputBuffer(1281, 720)
+[LAYOUT] client=2560x1369 -> vp=2270x1305
+[SWAPCHAIN] requested=2270x1305, currentExtent=2270x1305 -> actual=2270x1305
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[LAYOUT] client=1265x681 -> vp=975x617
+[LAYOUT] client=1267x684 -> vp=977x620
+[LAYOUT] client=1270x685 -> vp=980x621
+[LAYOUT] client=1273x689 -> vp=983x625
+[LAYOUT] client=1276x694 -> vp=986x630
+[LAYOUT] client=1281x700 -> vp=991x636
+[LAYOUT] client=1285x703 -> vp=995x639
+[LAYOUT] client=1287x706 -> vp=997x642
+[LAYOUT] client=1291x709 -> vp=1001x645
+[LAYOUT] client=1294x712 -> vp=1004x648
+[LAYOUT] client=1296x714 -> vp=1006x650
+[LAYOUT] client=1298x716 -> vp=1008x652
+[LAYOUT] client=1301x719 -> vp=1011x655
+[LAYOUT] client=1303x722 -> vp=1013x658
+[LAYOUT] client=1305x723 -> vp=1015x659
+[LAYOUT] client=1307x725 -> vp=1017x661
+[LAYOUT] client=1308x726 -> vp=1018x662
+[LAYOUT] client=1311x729 -> vp=1021x665
+[LAYOUT] client=1313x730 -> vp=1023x666
+[LAYOUT] client=1315x730 -> vp=1025x666
+[LAYOUT] client=1317x731 -> vp=1027x667
+[LAYOUT] client=1318x732 -> vp=1028x668
+[LAYOUT] client=1320x732 -> vp=1030x668
+[LAYOUT] client=1322x733 -> vp=1032x669
+[LAYOUT] client=1323x734 -> vp=1033x670
+[LAYOUT] client=1324x736 -> vp=1034x672
+[LAYOUT] client=1325x736 -> vp=1035x672
+[LAYOUT] client=1326x737 -> vp=1036x673
+[LAYOUT] client=1327x738 -> vp=1037x674
+[LAYOUT] client=1329x738 -> vp=1039x674
+[LAYOUT] client=1330x739 -> vp=1040x675
+[LAYOUT] client=1332x739 -> vp=1042x675
+[LAYOUT] client=1333x739 -> vp=1043x675
+[LAYOUT] client=1334x739 -> vp=1044x675
+[LAYOUT] client=1338x739 -> vp=1048x675
+[LAYOUT] client=1341x739 -> vp=1051x675
+[LAYOUT] client=1345x739 -> vp=1055x675
+[LAYOUT] client=1349x738 -> vp=1059x674
+[LAYOUT] client=1355x738 -> vp=1065x674
+[LAYOUT] client=1360x738 -> vp=1070x674
+[LAYOUT] client=1363x738 -> vp=1073x674
+[LAYOUT] client=1371x738 -> vp=1081x674
+[LAYOUT] client=1379x738 -> vp=1089x674
+[LAYOUT] client=1386x738 -> vp=1096x674
+[LAYOUT] client=1393x738 -> vp=1103x674
+[LAYOUT] client=1396x739 -> vp=1106x675
+[LAYOUT] client=1402x740 -> vp=1112x676
+[LAYOUT] client=1404x740 -> vp=1114x676
+[LAYOUT] client=1407x742 -> vp=1117x678
+[LAYOUT] client=1410x742 -> vp=1120x678
+[LAYOUT] client=1411x744 -> vp=1121x680
+[LAYOUT] client=1413x745 -> vp=1123x681
+[LAYOUT] client=1414x745 -> vp=1124x681
+[LAYOUT] client=1415x745 -> vp=1125x681
+[LAYOUT] client=1418x745 -> vp=1128x681
+[LAYOUT] client=1420x745 -> vp=1130x681
+[LAYOUT] client=1421x745 -> vp=1131x681
+[LAYOUT] client=1425x745 -> vp=1135x681
+[LAYOUT] client=1427x745 -> vp=1137x681
+[LAYOUT] client=1429x742 -> vp=1139x678
+[LAYOUT] client=1430x739 -> vp=1140x675
+[LAYOUT] client=1431x737 -> vp=1141x673
+[LAYOUT] client=1432x732 -> vp=1142x668
+[LAYOUT] client=1432x728 -> vp=1142x664
+[LAYOUT] client=1432x725 -> vp=1142x661
+[LAYOUT] client=1432x722 -> vp=1142x658
+[LAYOUT] client=1432x719 -> vp=1142x655
+[LAYOUT] client=1432x717 -> vp=1142x653
+[LAYOUT] client=1430x713 -> vp=1140x649
+[LAYOUT] client=1429x709 -> vp=1139x645
+[LAYOUT] client=1426x706 -> vp=1136x642
+[LAYOUT] client=1423x702 -> vp=1133x638
+[LAYOUT] client=1421x698 -> vp=1131x634
+[LAYOUT] client=1419x696 -> vp=1129x632
+[LAYOUT] client=1417x694 -> vp=1127x630
+[LAYOUT] client=1415x693 -> vp=1125x629
+[LAYOUT] client=1413x691 -> vp=1123x627
+[LAYOUT] client=1409x691 -> vp=1119x627
+[LAYOUT] client=1406x691 -> vp=1116x627
+[LAYOUT] client=1402x691 -> vp=1112x627
+[LAYOUT] client=1398x691 -> vp=1108x627
+[LAYOUT] client=1396x691 -> vp=1106x627
+[SWAPCHAIN] requested=1106x627, currentExtent=1106x627 -> actual=1106x627
+[LAYOUT] client=1396x692 -> vp=1106x628
+[LAYOUT] client=1398x696 -> vp=1108x632
+[LAYOUT] client=1400x700 -> vp=1110x636
+[LAYOUT] client=1403x705 -> vp=1113x641
+[LAYOUT] client=1409x713 -> vp=1119x649
+[LAYOUT] client=1416x722 -> vp=1126x658
+[LAYOUT] client=1420x728 -> vp=1130x664
+[LAYOUT] client=1428x737 -> vp=1138x673
+[LAYOUT] client=1433x745 -> vp=1143x681
+[LAYOUT] client=1440x753 -> vp=1150x689
+[LAYOUT] client=1447x760 -> vp=1157x696
+[LAYOUT] client=1450x766 -> vp=1160x702
+[LAYOUT] client=1456x772 -> vp=1166x708
+[LAYOUT] client=1460x778 -> vp=1170x714
+[LAYOUT] client=1463x781 -> vp=1173x717
+[LAYOUT] client=1467x786 -> vp=1177x722
+[LAYOUT] client=1471x790 -> vp=1181x726
+[LAYOUT] client=1473x792 -> vp=1183x728
+[LAYOUT] client=1475x794 -> vp=1185x730
+[LAYOUT] client=1478x797 -> vp=1188x733
+[LAYOUT] client=1481x800 -> vp=1191x736
+[LAYOUT] client=1485x804 -> vp=1195x740
+[LAYOUT] client=1489x808 -> vp=1199x744
+[LAYOUT] client=1491x809 -> vp=1201x745
+[LAYOUT] client=1493x811 -> vp=1203x747
+[LAYOUT] client=1496x812 -> vp=1206x748
+[LAYOUT] client=1498x814 -> vp=1208x750
+[LAYOUT] client=1499x814 -> vp=1209x750
+[LAYOUT] client=1500x815 -> vp=1210x751
+[SWAPCHAIN] requested=1210x751, currentExtent=1210x751 -> actual=1210x751
+[LAYOUT] client=1501x815 -> vp=1211x751
+[LAYOUT] client=1504x818 -> vp=1214x754
+[LAYOUT] client=1509x822 -> vp=1219x758
+[LAYOUT] client=1512x825 -> vp=1222x761
+[LAYOUT] client=1516x828 -> vp=1226x764
+[LAYOUT] client=1522x832 -> vp=1232x768
+[LAYOUT] client=1528x835 -> vp=1238x771
+[LAYOUT] client=1534x840 -> vp=1244x776
+[LAYOUT] client=1542x845 -> vp=1252x781
+[LAYOUT] client=1549x850 -> vp=1259x786
+[LAYOUT] client=1557x855 -> vp=1267x791
+[LAYOUT] client=1565x859 -> vp=1275x795
+[LAYOUT] client=1571x863 -> vp=1281x799
+[LAYOUT] client=1575x865 -> vp=1285x801
+[LAYOUT] client=1581x869 -> vp=1291x805
+[LAYOUT] client=1586x873 -> vp=1296x809
+[LAYOUT] client=1590x875 -> vp=1300x811
+[LAYOUT] client=1594x878 -> vp=1304x814
+[LAYOUT] client=1598x880 -> vp=1308x816
+[LAYOUT] client=1604x883 -> vp=1314x819
+[LAYOUT] client=1609x887 -> vp=1319x823
+[LAYOUT] client=1615x890 -> vp=1325x826
+[LAYOUT] client=1621x894 -> vp=1331x830
+[LAYOUT] client=1627x898 -> vp=1337x834
+[LAYOUT] client=1633x901 -> vp=1343x837
+[LAYOUT] client=1640x905 -> vp=1350x841
+[LAYOUT] client=1648x908 -> vp=1358x844
+[LAYOUT] client=1656x911 -> vp=1366x847
+[LAYOUT] client=1664x914 -> vp=1374x850
+[LAYOUT] client=1675x918 -> vp=1385x854
+[LAYOUT] client=1686x921 -> vp=1396x857
+[LAYOUT] client=1699x924 -> vp=1409x860
+[LAYOUT] client=1711x926 -> vp=1421x862
+[LAYOUT] client=1723x928 -> vp=1433x864
+[LAYOUT] client=1735x929 -> vp=1445x865
+[LAYOUT] client=1741x931 -> vp=1451x867
+[LAYOUT] client=1751x932 -> vp=1461x868
+[LAYOUT] client=1757x933 -> vp=1467x869
+[LAYOUT] client=1763x934 -> vp=1473x870
+[LAYOUT] client=1767x934 -> vp=1477x870
+[LAYOUT] client=1770x934 -> vp=1480x870
+[SWAPCHAIN] requested=1480x870, currentExtent=1480x870 -> actual=1480x870
+[LAYOUT] client=1771x934 -> vp=1481x870
+[LAYOUT] client=1775x937 -> vp=1485x873
+[LAYOUT] client=1779x940 -> vp=1489x876
+[LAYOUT] client=1783x941 -> vp=1493x877
+[LAYOUT] client=1790x945 -> vp=1500x881
+[LAYOUT] client=1800x950 -> vp=1510x886
+[LAYOUT] client=1808x953 -> vp=1518x889
+[LAYOUT] client=1819x957 -> vp=1529x893
+[LAYOUT] client=1831x961 -> vp=1541x897
+[LAYOUT] client=1839x964 -> vp=1549x900
+[LAYOUT] client=1849x967 -> vp=1559x903
+[LAYOUT] client=1859x971 -> vp=1569x907
+[LAYOUT] client=1866x974 -> vp=1576x910
+[LAYOUT] client=1876x977 -> vp=1586x913
+[LAYOUT] client=1882x979 -> vp=1592x915
+[LAYOUT] client=1890x982 -> vp=1600x918
+[LAYOUT] client=1899x985 -> vp=1609x921
+[LAYOUT] client=1906x987 -> vp=1616x923
+[LAYOUT] client=1911x988 -> vp=1621x924
+[LAYOUT] client=1916x989 -> vp=1626x925
+[LAYOUT] client=1918x990 -> vp=1628x926
+[LAYOUT] client=1921x991 -> vp=1631x927
+[LAYOUT] client=1923x991 -> vp=1633x927
+[SWAPCHAIN] requested=1633x927, currentExtent=1633x927 -> actual=1633x927
+[LAYOUT] client=1922x990 -> vp=1632x926
+[LAYOUT] client=1919x988 -> vp=1629x924
+[LAYOUT] client=1913x985 -> vp=1623x921
+[LAYOUT] client=1905x982 -> vp=1615x918
+[LAYOUT] client=1899x979 -> vp=1609x915
+[LAYOUT] client=1893x976 -> vp=1603x912
+[LAYOUT] client=1885x974 -> vp=1595x910
+[LAYOUT] client=1872x969 -> vp=1582x905
+[LAYOUT] client=1862x965 -> vp=1572x901
+[LAYOUT] client=1845x960 -> vp=1555x896
+[LAYOUT] client=1825x953 -> vp=1535x889
+[LAYOUT] client=1802x944 -> vp=1512x880
+[LAYOUT] client=1784x937 -> vp=1494x873
+[LAYOUT] client=1758x928 -> vp=1468x864
+[LAYOUT] client=1690x906 -> vp=1400x842
+[LAYOUT] client=1673x900 -> vp=1383x836
+[LAYOUT] client=1656x895 -> vp=1366x831
+[LAYOUT] client=1648x893 -> vp=1358x829
+[LAYOUT] client=1641x891 -> vp=1351x827
+[LAYOUT] client=1632x889 -> vp=1342x825
+[LAYOUT] client=1626x887 -> vp=1336x823
+[LAYOUT] client=1623x886 -> vp=1333x822
+[LAYOUT] client=1620x885 -> vp=1330x821
+[LAYOUT] client=1619x884 -> vp=1329x820
+[LAYOUT] client=1617x884 -> vp=1327x820
+[LAYOUT] client=1615x883 -> vp=1325x819
+[LAYOUT] client=1613x882 -> vp=1323x818
+[LAYOUT] client=1610x880 -> vp=1320x816
+[LAYOUT] client=1607x880 -> vp=1317x816
+[LAYOUT] client=1602x878 -> vp=1312x814
+[LAYOUT] client=1598x877 -> vp=1308x813
+[LAYOUT] client=1592x874 -> vp=1302x810
+[LAYOUT] client=1588x874 -> vp=1298x810
+[LAYOUT] client=1583x871 -> vp=1293x807
+[LAYOUT] client=1580x871 -> vp=1290x807
+[LAYOUT] client=1577x870 -> vp=1287x806
+[LAYOUT] client=1578x870 -> vp=1288x806
+[LAYOUT] client=1580x870 -> vp=1290x806
+[LAYOUT] client=1582x868 -> vp=1292x804
+[LAYOUT] client=1586x868 -> vp=1296x804
+[LAYOUT] client=1588x867 -> vp=1298x803
+[LAYOUT] client=1590x865 -> vp=1300x801
+[LAYOUT] client=1592x864 -> vp=1302x800
+[LAYOUT] client=1594x863 -> vp=1304x799
+[LAYOUT] client=1597x862 -> vp=1307x798
+[LAYOUT] client=1599x862 -> vp=1309x798
+[LAYOUT] client=1599x861 -> vp=1309x797
+[LAYOUT] client=1600x861 -> vp=1310x797
+[LAYOUT] client=1600x860 -> vp=1310x796
+[LAYOUT] client=1600x859 -> vp=1310x795
+[LAYOUT] client=1600x858 -> vp=1310x794
+[LAYOUT] client=1600x856 -> vp=1310x792
+[LAYOUT] client=1600x855 -> vp=1310x791
+[LAYOUT] client=1600x853 -> vp=1310x789
+[LAYOUT] client=1600x852 -> vp=1310x788
+[LAYOUT] client=1600x850 -> vp=1310x786
+[LAYOUT] client=1600x849 -> vp=1310x785
+[LAYOUT] client=1600x847 -> vp=1310x783
+[LAYOUT] client=1600x846 -> vp=1310x782
+[LAYOUT] client=1600x842 -> vp=1310x778
+[LAYOUT] client=1599x841 -> vp=1309x777
+[LAYOUT] client=1599x839 -> vp=1309x775
+[LAYOUT] client=1598x837 -> vp=1308x773
+[LAYOUT] client=1596x835 -> vp=1306x771
+[LAYOUT] client=1595x834 -> vp=1305x770
+[LAYOUT] client=1593x833 -> vp=1303x769
+[LAYOUT] client=1592x832 -> vp=1302x768
+[LAYOUT] client=1590x831 -> vp=1300x767
+[LAYOUT] client=1588x831 -> vp=1298x767
+[LAYOUT] client=1586x830 -> vp=1296x766
+[LAYOUT] client=1584x829 -> vp=1294x765
+[LAYOUT] client=1583x829 -> vp=1293x765
+[LAYOUT] client=1582x828 -> vp=1292x764
+[LAYOUT] client=1581x827 -> vp=1291x763
+[LAYOUT] client=1580x826 -> vp=1290x762
+[LAYOUT] client=1579x826 -> vp=1289x762
+[LAYOUT] client=1578x826 -> vp=1288x762
+[LAYOUT] client=1578x825 -> vp=1288x761
+[LAYOUT] client=1577x824 -> vp=1287x760
+[LAYOUT] client=1576x823 -> vp=1286x759
+[LAYOUT] client=1575x823 -> vp=1285x759
+[LAYOUT] client=1575x821 -> vp=1285x757
+[LAYOUT] client=1575x820 -> vp=1285x756
+[LAYOUT] client=1575x819 -> vp=1285x755
+[LAYOUT] client=1575x818 -> vp=1285x754
+[LAYOUT] client=1575x817 -> vp=1285x753
+[LAYOUT] client=1575x816 -> vp=1285x752
+[LAYOUT] client=1575x815 -> vp=1285x751
+[LAYOUT] client=1575x814 -> vp=1285x750
+[LAYOUT] client=1575x813 -> vp=1285x749
+[LAYOUT] client=1575x812 -> vp=1285x748
+[LAYOUT] client=1575x810 -> vp=1285x746
+[LAYOUT] client=1575x809 -> vp=1285x745
+[LAYOUT] client=1575x808 -> vp=1285x744
+[LAYOUT] client=1575x807 -> vp=1285x743
+[LAYOUT] client=1575x806 -> vp=1285x742
+[LAYOUT] client=1575x805 -> vp=1285x741
+[LAYOUT] client=1575x804 -> vp=1285x740
+[LAYOUT] client=1575x803 -> vp=1285x739
+[LAYOUT] client=1575x802 -> vp=1285x738
+[LAYOUT] client=1576x802 -> vp=1286x738
+[LAYOUT] client=1576x801 -> vp=1286x737
+[LAYOUT] client=1576x800 -> vp=1286x736
+[LAYOUT] client=1576x799 -> vp=1286x735
+[LAYOUT] client=1576x798 -> vp=1286x734
+[LAYOUT] client=1576x797 -> vp=1286x733
+[LAYOUT] client=1576x796 -> vp=1286x732
+[LAYOUT] client=1576x795 -> vp=1286x731
+[LAYOUT] client=1576x794 -> vp=1286x730
+[LAYOUT] client=1576x793 -> vp=1286x729
+[LAYOUT] client=1576x792 -> vp=1286x728
+[LAYOUT] client=1576x791 -> vp=1286x727
+[LAYOUT] client=1576x790 -> vp=1286x726
+[LAYOUT] client=1576x789 -> vp=1286x725
+[LAYOUT] client=1577x788 -> vp=1287x724
+[LAYOUT] client=1576x788 -> vp=1286x724
+[LAYOUT] client=1575x788 -> vp=1285x724
+[LAYOUT] client=1574x788 -> vp=1284x724
+[LAYOUT] client=1573x788 -> vp=1283x724
+[LAYOUT] client=1572x788 -> vp=1282x724
+[LAYOUT] client=1572x789 -> vp=1282x725
+[LAYOUT] client=1572x788 -> vp=1282x724
+[LAYOUT] client=1572x787 -> vp=1282x723
+[LAYOUT] client=1573x787 -> vp=1283x723
+[LAYOUT] client=1573x786 -> vp=1283x722
+[LAYOUT] client=1573x785 -> vp=1283x721
+[LAYOUT] client=1572x785 -> vp=1282x721
+[LAYOUT] client=1571x785 -> vp=1281x721
+[SWAPCHAIN] requested=1281x721, currentExtent=1281x721 -> actual=1281x721
+[LAYOUT] client=1264x681 -> vp=974x617
+[LAYOUT] client=1264x681 -> vp=974x617
+[SWAPCHAIN] requested=974x617, currentExtent=974x617 -> actual=974x617
+[BUF] resizeOutputBuffer(974, 617)
+[BUF] resizeOutputBuffer(854, 480)
+[DISPATCH] dispatch size: 854x480, output buffer size: 1639680

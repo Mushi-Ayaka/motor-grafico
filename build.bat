@@ -98,7 +98,7 @@ if errorlevel 1 (
 )
 
 echo Compilando ImGui Vulkan backend (VK_NO_PROTOTYPES -> vk* via volk)...
-cl /EHsc /std:c++17 /O2 /MD /DVK_NO_PROTOTYPES /I "%VULKAN_SDK%\Include" /I "%THIS%\external\imgui" /I "%THIS%\external\imgui\backends" /c "%THIS%\external\imgui\backends\imgui_impl_vulkan.cpp" /Fo"%THIS%\build\imgui_impl_vulkan.obj"
+cl /EHsc /std:c++17 /O2 /MD /DVK_NO_PROTOTYPES /DIMGUI_IMPL_VULKAN_USE_VOLK /I "%VULKAN_SDK%\Include" /I "%THIS%\external\volk" /I "%THIS%\external\imgui" /I "%THIS%\external\imgui\backends" /c "%THIS%\external\imgui\backends\imgui_impl_vulkan.cpp" /Fo"%THIS%\build\imgui_impl_vulkan.obj"
 if errorlevel 1 (
     echo Error al compilar imgui_impl_vulkan
     exit /b 1

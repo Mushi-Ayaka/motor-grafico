@@ -1,0 +1,66 @@
+scene "01 Bodega Baja" {
+    axes { X: 480, Y: 270, W: 1 }
+    camera {
+        position: [0, 1.6, 3.2];
+        target: [0, 0.9, 0];
+        up: [0, 1, 0];
+        fov: 55;
+    }
+    background: [0.02, 0.02, 0.04];
+}
+
+light "sol" {
+    type: directional;
+    direction: [0.5, 0.8, 0.3];
+    color: [1, 0.95, 0.85];
+    intensity: 0.8;
+}
+
+material "pared" {
+    base_color: [0.55, 0.52, 0.46];
+    roughness: 0.95;
+    metallic: 0.0;
+}
+
+material "cobre" {
+    base_color: [0.72, 0.45, 0.2];
+    roughness: 0.3;
+    metallic: 1.0;
+}
+
+material "madera" {
+    base_color: [0.4, 0.26, 0.14];
+    roughness: 0.7;
+    metallic: 0.0;
+}
+
+material "piedra" {
+    base_color: [0.5, 0.5, 0.52];
+    roughness: 0.85;
+    metallic: 0.0;
+}
+
+node "cuarto" {
+    sdf: subtract(box(4, 2.5, 4), box(3.8, 2.4, 3.8));
+    material: "pared";
+    position: [0, 2.4, 0];
+}
+
+node "esfera_cobre" {
+    sdf: sphere(0.6);
+    material: "cobre";
+    position: [-1, 0.6, 0];
+}
+
+node "cajon" {
+    sdf: box(0.5, 0.5, 0.5);
+    material: "madera";
+    position: [1, 0.5, -0.5];
+    rotation: [0, 20, 0];
+}
+
+node "cilindro" {
+    sdf: cylinder(0.3, 1.2);
+    material: "piedra";
+    position: [0, 0.6, -1.5];
+}

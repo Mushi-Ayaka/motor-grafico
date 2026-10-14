@@ -71,14 +71,14 @@ bool VulkanSceneData::init(const OntScene& scene) {
     VkDeviceSize matSize = scene.header->material_count * sizeof(OntMaterial);
     if (!createDeviceBuffer(scene.materials, matSize, material_buffer)) return false;
 
-    // 2. Create UBO (CPU_TO_GPU, persistente)
-    if (!vk_ctx.createBuffer(sizeof(UboData),
+    // 2. Create UBO ring (CPU_TO_GPU, 2 slots para FRAMES_IN_FLIGHT, stride alineado a 64)
+    if (!vk_ctx.createBuffer(UBO_STRIDE * FRAMES_IN_FLIGHT,
                              VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                              VMA_MEMORY_USAGE_CPU_TO_GPU,
                              ubo_buffer.buffer, ubo_buffer.allocation)) {
         return false;
     }
-    ubo_buffer.size = sizeof(UboData);
+    ubo_buffer.size = UBO_STRIDE * FRAMES_IN_FLIGHT;
 
     // 3. Create Output Buffer
     VkDeviceSize outSize = scene.width * scene.height * 4;
@@ -112,7 +112,7 @@ bool VulkanSceneData::init(const OntScene& scene) {
     std::vector<VkDescriptorSetLayoutBinding> bindings = {
         {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // BVH
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // Materials
-        {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // UBO
+        {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // UBO (dinámico, 2 slots)
         {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // Output Pixels
         {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // Tensor Buffer
     };
@@ -129,7 +129,7 @@ bool VulkanSceneData::init(const OntScene& scene) {
     // 8. Create Pool
     std::vector<VkDescriptorPoolSize> poolSizes = {
         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1}
     };
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -156,7 +156,7 @@ bool VulkanSceneData::init(const OntScene& scene) {
     // 10. Update Descriptor Set (link buffers)
     VkDescriptorBufferInfo bvhInfo{bvh_buffer.buffer, 0, bvh_buffer.size};
     VkDescriptorBufferInfo matInfo{material_buffer.buffer, 0, material_buffer.size};
-    VkDescriptorBufferInfo uboInfo{ubo_buffer.buffer, 0, ubo_buffer.size};
+    VkDescriptorBufferInfo uboInfo{ubo_buffer.buffer, 0, sizeof(UboData)}; // range = 1 slot (dynamic offset selecciona el slot)
     VkDescriptorBufferInfo outInfo{output_buffer.buffer, 0, output_buffer.size};
     VkDescriptorBufferInfo tensorInfo{tensor_buffer.buffer, 0, tensor_buffer.size};
 
@@ -167,7 +167,7 @@ bool VulkanSceneData::init(const OntScene& scene) {
         descriptorWrites[i].dstBinding = i;
         descriptorWrites[i].dstArrayElement = 0;
         descriptorWrites[i].descriptorCount = 1;
-        descriptorWrites[i].descriptorType = (i == 2) ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[i].descriptorType = (i == 2) ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     }
 
     descriptorWrites[0].pBufferInfo = &bvhInfo;
@@ -324,7 +324,9 @@ bool VulkanSceneData::initPipeline() {
 
 void VulkanSceneData::recordComputeCommandBuffer(VkCommandBuffer cmd, uint32_t width, uint32_t height) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compute_pipeline);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+    // A3: dynamic offset para el UBO ring (slot = current_frame, stride alineado a 64)
+    uint32_t ubo_offset = (uint32_t)((vk_ctx.current_frame % FRAMES_IN_FLIGHT) * UBO_STRIDE);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 1, &ubo_offset);
     vkCmdDispatch(cmd, (width + 7) / 8, (height + 7) / 8, 1);
 
     // Pipeline barrier: compute shader -> transfer
@@ -367,15 +369,20 @@ void VulkanSceneData::recordComputeCommandBuffer(VkCommandBuffer cmd, uint32_t w
 
 void VulkanSceneData::updateUBO(const UboData& ubo) {
     if (!ubo_buffer.allocation) return;
+    // A3: UBO ring — escribir en el slot del frame actual (stride alineado a 64)
+    uint32_t slot = vk_ctx.current_frame % FRAMES_IN_FLIGHT;
+    VkDeviceSize offset = (VkDeviceSize)slot * UBO_STRIDE;
     void* mappedData;
     vmaMapMemory(vk_ctx.allocator, ubo_buffer.allocation, &mappedData);
-    memcpy(mappedData, &ubo, sizeof(UboData));
-    vmaFlushAllocation(vk_ctx.allocator, ubo_buffer.allocation, 0, VK_WHOLE_SIZE);
+    memcpy((char*)mappedData + offset, &ubo, sizeof(UboData));
+    vmaFlushAllocation(vk_ctx.allocator, ubo_buffer.allocation, offset, sizeof(UboData));
     vmaUnmapMemory(vk_ctx.allocator, ubo_buffer.allocation);
 }
 
 bool VulkanSceneData::resizeOutputBuffer(uint32_t width, uint32_t height) {
     if (!pipeline_ready) return false;
+    VkDeviceSize wantSize = (VkDeviceSize)width * height * 4;
+    if (output_buffer.buffer && output_buffer.size == wantSize) return true; // idempotente
     {
         FILE* f = fopen("phase6_diag.txt", "a");
         if (f) { fprintf(f, "[BUF] resizeOutputBuffer(%d, %d)\n", width, height); fclose(f); }
@@ -384,8 +391,9 @@ bool VulkanSceneData::resizeOutputBuffer(uint32_t width, uint32_t height) {
     vkDeviceWaitIdle(vk_ctx.device);
 
     output_buffer.cleanup();
+    output_staging.cleanup();
 
-    VkDeviceSize outSize = (VkDeviceSize)width * height * 4;
+    VkDeviceSize outSize = wantSize;
     if (!vk_ctx.createBuffer(outSize,
                              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                              VMA_MEMORY_USAGE_GPU_ONLY,
@@ -393,6 +401,8 @@ bool VulkanSceneData::resizeOutputBuffer(uint32_t width, uint32_t height) {
         return false;
     }
     output_buffer.size = outSize;
+
+    if (!createHostBuffer(outSize, output_staging)) return false;
 
     VkDescriptorBufferInfo outInfo{};
     outInfo.buffer = output_buffer.buffer;

@@ -1,0 +1,206 @@
+scene "03 Galeria" {
+    axes { X: 854, Y: 480, W: 1 }
+    camera {
+        position: [0, 1.7, 4.6];
+        target: [0, 1.2, -3];
+        up: [0, 1, 0];
+        fov: 58;
+    }
+    background: [0.02, 0.02, 0.05];
+}
+
+light "sol" {
+    type: directional;
+    direction: [0.5, 0.75, 0.4];
+    color: [1, 0.97, 0.9];
+    intensity: 0.65;
+}
+
+light "ventana_luz" {
+    type: point;
+    position: [0, 3, -5];
+    color: [0.7, 0.8, 1];
+    intensity: 0.5;
+    falloff: 0.06;
+}
+
+light "pie" {
+    type: point;
+    position: [2, 0.5, 2];
+    color: [1, 0.8, 0.5];
+    intensity: 0.35;
+    falloff: 0.1;
+}
+
+material "piso_marmol" {
+    base_color: [0.32, 0.32, 0.35];
+    roughness: 0.25;
+    metallic: 0.0;
+}
+
+material "pared_cal" {
+    base_color: [0.62, 0.59, 0.53];
+    roughness: 0.92;
+    metallic: 0.0;
+}
+
+material "techo" {
+    base_color: [0.4, 0.38, 0.35];
+    roughness: 0.95;
+    metallic: 0.0;
+}
+
+material "pedestal" {
+    base_color: [0.1, 0.1, 0.12];
+    roughness: 0.5;
+    metallic: 0.0;
+}
+
+material "bronce" {
+    base_color: [0.65, 0.5, 0.25];
+    roughness: 0.3;
+    metallic: 1.0;
+}
+
+material "oro" {
+    base_color: [1.0, 0.85, 0.4];
+    roughness: 0.2;
+    metallic: 1.0;
+}
+
+material "ceramica_azul" {
+    base_color: [0.15, 0.3, 0.65];
+    roughness: 0.2;
+    metallic: 0.0;
+}
+
+material "lampara" {
+    base_color: [0.9, 0.85, 0.7];
+    roughness: 0.4;
+    metallic: 0.0;
+    emission: [1.0, 0.9, 0.65];
+}
+
+node "piso" {
+    sdf: box(6, 0.1, 6);
+    material: "piso_marmol";
+    position: [0, -0.1, 0];
+}
+
+node "techo" {
+    sdf: box(6, 0.1, 6);
+    material: "techo";
+    position: [0, 5.6, 0];
+}
+
+node "pared_ventana" {
+    sdf: subtract(box(6, 2.8, 0.15), box(1.6, 1.4, 0.5));
+    material: "pared_cal";
+    position: [0, 2.8, -5.95];
+}
+
+node "pared_atras" {
+    sdf: box(6, 2.8, 0.15);
+    material: "pared_cal";
+    position: [0, 2.8, 5.95];
+}
+
+node "pared_izq" {
+    sdf: box(0.15, 2.8, 6);
+    material: "pared_cal";
+    position: [-5.95, 2.8, 0];
+}
+
+node "pared_der" {
+    sdf: box(0.15, 2.8, 6);
+    material: "pared_cal";
+    position: [5.95, 2.8, 0];
+}
+
+node "pared_frente" {
+    sdf: box(6, 2.8, 0.15);
+    material: "pared_cal";
+    position: [0, 2.8, 5.95];
+}
+
+def "pedestal" {
+    mode: solid;
+    sdf: cylinder(0.35, 1.1);
+    material: "pedestal";
+    position: [0, 0, 0];
+}
+
+node "esculturas" {
+    instance "pedestal" { position: [-3.2, 0.55, -1.5]; }
+    instance "pedestal" { position: [3.2, 0.55, -1.5]; }
+    instance "pedestal" { position: [-3.2, 0.55, -4]; }
+    instance "pedestal" { position: [3.2, 0.55, -4]; }
+}
+
+node "escultura_toro" {
+    sdf: torus(0.4, 0.12);
+    material: "oro";
+    position: [-3.2, 1.4, -1.5];
+    rotation: [70, 0, 0];
+}
+
+node "escultura_octa" {
+    sdf: octahedron(0.5);
+    material: "bronce";
+    position: [3.2, 1.7, -1.5];
+}
+
+node "escultura_cubo" {
+    sdf: rounded_box(0.35, 0.35, 0.35, 0.08);
+    material: "ceramica_azul";
+    position: [-3.2, 1.6, -4];
+    rotation: [0, 45, 0];
+}
+
+node "escultura_cono" {
+    sdf: cone(0.4, 0.9);
+    material: "oro";
+    position: [3.2, 1.7, -4];
+}
+
+node "banco" {
+    sdf: box(1.6, 0.45, 0.5);
+    material: "pared_cal";
+    position: [0, 0.225, 1.8];
+}
+
+node "mesa_lat1" {
+    sdf: box(0.9, 0.5, 0.6);
+    material: "techo";
+    position: [-4.5, 0.25, 2.5];
+}
+
+node "mesa_lat2" {
+    sdf: box(0.9, 0.5, 0.6);
+    material: "techo";
+    position: [4.5, 0.25, 2.5];
+}
+
+node "jarron" {
+    sdf: sphere(0.32);
+    material: "ceramica_azul";
+    position: [-4.5, 0.82, 2.5];
+}
+
+node "esfera_bronce" {
+    sdf: sphere(0.25);
+    material: "bronce";
+    position: [4.5, 0.75, 2.5];
+}
+
+node "lampara_techo" {
+    sdf: sphere(0.3);
+    material: "lampara";
+    position: [0, 4.7, 0];
+}
+
+node "cable" {
+    sdf: cylinder(0.03, 1.4);
+    material: "pedestal";
+    position: [0, 5.3, 0];
+}

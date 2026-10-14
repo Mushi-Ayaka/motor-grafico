@@ -37,6 +37,10 @@ struct UboData {
 
 static_assert(sizeof(UboData) == 96, "UboData must be exactly 96 bytes for std140 layout");
 
+// A3: stride del UBO ring — alineado a minUniformBufferOffsetAlignment (típicamente 64)
+// 96 → 128 (múltiplo de 64). El shader solo lee los primeros 96 bytes; el padding es ignorable.
+static constexpr uint32_t UBO_STRIDE = 128;
+
 struct VulkanSceneData {
     BufferAllocation bvh_buffer;
     BufferAllocation material_buffer;
