@@ -1,8 +1,19 @@
 # 11 — Estado del proyecto y deuda técnica
 
-## Estado actual (Junio 2026 — v0.26)
+## Estado actual (Julio 2026 — v0.27)
 
 El Motor Gráfico es un **motor de renderizado SDF con pipeline GPU completo y estable**. La CPU ya no calcula píxeles en producción. Tiene arquitectura en capas, 219 tests unitarios, y dos paths de render coexistentes: GPU (Vulkan Compute, producción) y CPU (SIMD+MT, debug/fallback).
+
+### Pipeline Herm → Ont (v0.27)
+
+Se corrigió una violación ODR en el compilador Hermético (`lenguaje-hermetico/herm/herm_ont.cpp`) que causaba crash al generar archivos `.ont`. El fix (renombrar `FlatNode` → `OntFlatNode`) eliminó el conflicto de linking con `herm_render.cpp`, permitiendo que el pipeline completo funcione sin crashes en todas las escenas.
+
+### Configuración local
+
+- `build.bat` compila correctamente con Vulkan SDK 1.4.350.0 y asmjit
+- `run_visor.bat` usa rutas relativas correctas para escenas `.ont`
+- `debug_visor.bat` nuevo: lanza visor con escena `.ont` y pausa al salir para ver errores
+- Nota: las escenas de prueba (`test_minimo`, `catedral_hermetica`) no están disponibles localmente (están en la máquina anterior)
 
 ### Benchmarks
 

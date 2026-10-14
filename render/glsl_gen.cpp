@@ -54,6 +54,11 @@ struct UboData {
     uint width;
     uint height;
     float tmax;
+    float shade_ambient;
+    float shade_specular;
+    float post_exposure;
+    uint post_tonemap;
+    uint post_gamma;
 };
 
 // ============================================================================
@@ -175,14 +180,14 @@ vec3 shadeOnt(vec3 p, vec3 n, vec3 view_dir, uint mat_id) {
     // Ambient
     float ambient_up = 0.5 + 0.5 * n.y;
     float ambient_down = 0.5 - 0.5 * n.y;
-    vec3 ambient = (vec3(0.4, 0.6, 0.9) * ambient_up + vec3(0.15, 0.1, 0.05) * ambient_down) * albedo * 0.1 * (1.0 - metallic);
+    vec3 ambient = (vec3(0.4, 0.6, 0.9) * ambient_up + vec3(0.15, 0.1, 0.05) * ambient_down) * albedo * ubo.shade_ambient * (1.0 - metallic);
 
-    vec3 color = (diffuse + specular * 0.3) * light_col + ambient + mat.emission;
+    vec3 color = (diffuse + specular * ubo.shade_specular) * light_col + ambient + mat.emission;
 
     // Exposure and tone mapping
-    color *= 2.0;
-    color = color / (1.0 + color);
-    color = pow(max(color, vec3(0.0)), vec3(1.0 / 2.2));
+    color *= ubo.post_exposure;
+    if (ubo.post_tonemap != 0u) color = color / (1.0 + color);
+    if (ubo.post_gamma != 0u) color = pow(max(color, vec3(0.0)), vec3(1.0 / 2.2));
 
     return color;
 }
@@ -304,15 +309,15 @@ static std::string decompileBytecode(const uint8_t* bc, uint32_t length) {
             case ONT_VAR_Y:  stack.emplace_back("p.y"); break;
             case ONT_VAR_Z:  stack.emplace_back("p.z"); break;
             case ONT_VAR_W:  stack.emplace_back("w"); break;
-            case ONT_VAR_NX: stack.emplace_back("n.x"); break;
-            case ONT_VAR_NY: stack.emplace_back("n.y"); break;
-            case ONT_VAR_NZ: stack.emplace_back("n.z"); break;
-            case ONT_VAR_VX: stack.emplace_back("v.x"); break;
-            case ONT_VAR_VY: stack.emplace_back("v.y"); break;
-            case ONT_VAR_VZ: stack.emplace_back("v.z"); break;
-            case ONT_VAR_LX: stack.emplace_back("l.x"); break;
-            case ONT_VAR_LY: stack.emplace_back("l.y"); break;
-            case ONT_VAR_LZ: stack.emplace_back("l.z"); break;
+            case ONT_VAR_NX: stack.emplace_back("0.0"); break;
+            case ONT_VAR_NY: stack.emplace_back("0.0"); break;
+            case ONT_VAR_NZ: stack.emplace_back("0.0"); break;
+            case ONT_VAR_VX: stack.emplace_back("0.0"); break;
+            case ONT_VAR_VY: stack.emplace_back("0.0"); break;
+            case ONT_VAR_VZ: stack.emplace_back("0.0"); break;
+            case ONT_VAR_LX: stack.emplace_back("0.0"); break;
+            case ONT_VAR_LY: stack.emplace_back("0.0"); break;
+            case ONT_VAR_LZ: stack.emplace_back("0.0"); break;
 
             case ONT_ADD: { auto b = pop(), a = pop(); stack.emplace_back("(" + a + " + " + b + ")"); break; }
             case ONT_SUB: { auto b = pop(), a = pop(); stack.emplace_back("(" + a + " - " + b + ")"); break; }
@@ -320,13 +325,13 @@ static std::string decompileBytecode(const uint8_t* bc, uint32_t length) {
             case ONT_DIV: { auto b = pop(), a = pop(); stack.emplace_back("(" + a + " / " + b + ")"); break; }
             case ONT_MOD: { auto b = pop(), a = pop(); stack.emplace_back("(mod(" + a + ", " + b + "))"); break; }
             case ONT_NEG: { auto a = pop(); stack.emplace_back("(-" + a + ")"); break; }
-            case ONT_POW: { auto b = pop(), a = pop(); stack.emplace_back("(pow(abs(" + a + "), " + b + "))"); break; }
+            case ONT_POW: { auto b = pop(), a = pop(); stack.emplace_back("(pow(" + a + ", " + b + "))"); break; }
 
             case ONT_SIN:  { auto a = pop(); stack.emplace_back("(sin(" + a + "))"); break; }
             case ONT_COS:  { auto a = pop(); stack.emplace_back("(cos(" + a + "))"); break; }
             case ONT_TAN:  { auto a = pop(); stack.emplace_back("(tan(" + a + "))"); break; }
             case ONT_ABS:  { auto a = pop(); stack.emplace_back("(abs(" + a + "))"); break; }
-            case ONT_SQRT: { auto a = pop(); stack.emplace_back("(sqrt(abs(" + a + ")))"); break; }
+            case ONT_SQRT: { auto a = pop(); stack.emplace_back("(sqrt(" + a + "))"); break; }
             case ONT_FLOOR:{ auto a = pop(); stack.emplace_back("(floor(" + a + "))"); break; }
             case ONT_CEIL: { auto a = pop(); stack.emplace_back("(ceil(" + a + "))"); break; }
 

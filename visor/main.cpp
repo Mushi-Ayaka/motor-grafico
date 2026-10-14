@@ -277,14 +277,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR lpCmdLine, int) {
         if (p) *p = L'\0';
 
         wcscpy_s(full_path, exe_dir);
-        wcscat_s(full_path, L"\\..\\..\\Lenguaje Hermetico\\libreria\\escenas\\catedral_hermetica_0000.ont");
+        wcscat_s(full_path, L"\\..\\..\\..\\proyectos-index\\proyecto de IA artistica\\Lenguaje Hermetico\\.gitignored\\libreria\\escenas\\catedral_hermetica_0000.ont");
         if (GetFileAttributesW(full_path) == INVALID_FILE_ATTRIBUTES) {
             wcscpy_s(full_path, exe_dir);
             wcscat_s(full_path, L"\\test_custom.ont");
         }
         if (GetFileAttributesW(full_path) == INVALID_FILE_ATTRIBUTES) {
             wcscpy_s(full_path, exe_dir);
-            wcscat_s(full_path, L"\\..\\..\\Lenguaje Hermetico\\libreria\\escenas\\test_suelo.rih");
+            wcscat_s(full_path, L"\\..\\..\\..\\proyectos-index\\proyecto de IA artistica\\Lenguaje Hermetico\\.gitignored\\libreria\\escenas\\test_default.ont");
         }
     }
 

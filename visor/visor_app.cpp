@@ -47,19 +47,18 @@ bool VisorApp::init(HINSTANCE hInst, const wchar_t* initial_scene) {
     if (!win.init(hInst, this)) { diag("[PHASE6] FAIL: win.init"); return false; }
     diag("[PHASE6] win.init OK");
 
-    if (!vk_ctx.init(win.hwnd_viewport)) {
-        diag("[PHASE6] FAIL: vk_ctx.init");
-        std::cerr << "Failed to init Vulkan core" << std::endl;
-        return false;
+    if (vk_ctx.init(win.hwnd_viewport)) {
+        diag("[PHASE6] vk_ctx.init OK");
+        if (!vk_ctx.initSwapchain(workspace.active().w, workspace.active().h)) {
+            diag("[PHASE6] FAIL: initSwapchain — disabling Vulkan");
+            renderer.use_vulkan = false;
+        } else {
+            diag("[PHASE6] initSwapchain OK");
+        }
+    } else {
+        diag("[PHASE6] vk_ctx.init FAILED — disabling Vulkan, using CPU renderer");
+        renderer.use_vulkan = false;
     }
-    diag("[PHASE6] vk_ctx.init OK");
-    if (!vk_ctx.initSwapchain(workspace.active().w, workspace.active().h)) {
-        diag("[PHASE6] FAIL: initSwapchain");
-        std::cerr << "Failed to init Vulkan swapchain" << std::endl;
-        return false;
-    }
-    diag("[PHASE6] initSwapchain OK");
-
     // --- Init ImGui (editor UI) over the viewport swapchain (T-F6) ---
     if (renderer.use_vulkan) {
         ImGui::CreateContext();
@@ -116,6 +115,34 @@ bool VisorApp::init(HINSTANCE hInst, const wchar_t* initial_scene) {
             diag("[PHASE6] fm.open FAILED for initial_scene. Falling back to loadDefault");
             renderer.ont_scene.loadDefault();
             renderer.ont_mode = true;
+            renderer.arena.init(64 * 1024 * 1024);
+            renderer.jit.init();
+            renderer.jit.compileScene(renderer.ont_scene);
+            renderer.brick_map.destroy();
+            buildBrickMap(renderer.ont_scene, renderer.brick_map);
+            if (renderer.use_vulkan) {
+                renderer.vk_scene.init(renderer.ont_scene);
+                GlslGenResult gen = GlslGen::generate(renderer.ont_scene);
+                if (gen.ok) {
+                    std::vector<uint32_t> spv;
+                    std::string compile_error;
+                    if (compileGlslToSpv(gen.glsl_source, spv, compile_error)) {
+                        if (renderer.vk_scene.recreateScenePipeline(spv)) {
+                            renderer.vulkan_has_scene_shader = true;
+                            logDiag("[VK] Default scene pipeline created");
+                        } else {
+                            logDiag("[VK] recreateScenePipeline FAILED, loading fallback");
+                            renderer.vk_scene.initPipeline();
+                        }
+                    } else {
+                        logDiag(("[GLSL] Compilation error: " + compile_error).c_str());
+                        renderer.vk_scene.initPipeline();
+                    }
+                } else {
+                    logDiag(("[GLSL] Generation error: " + gen.error).c_str());
+                    renderer.vk_scene.initPipeline();
+                }
+            }
         }
 
         // Apply observation camera if present, otherwise use default orbit
@@ -398,7 +425,8 @@ void VisorApp::run() {
 
         // Process camera input (WASD, keys)
         bool cam_moved = input.updateCamera(0.016f, cam_ctrl);
-        if (cam_moved) {
+        bool cam_rotated = input.mouse_dragging || input.mouse_look;
+        if (cam_moved || cam_rotated) {
             camera_moving = true;
             camera_stop_tick = now;
             if (renderer.ont_mode) {
@@ -524,6 +552,11 @@ void VisorApp::run() {
                 ubo.width = rw;
                 ubo.height = rh;
                 ubo.trace_t_max = renderer.ont_scene.pipeline.trace_t_max;
+                ubo.shade_ambient = renderer.ont_scene.pipeline.shade_ambient;
+                ubo.shade_specular = renderer.ont_scene.pipeline.shade_specular;
+                ubo.post_exposure = renderer.ont_scene.pipeline.post_exposure;
+                ubo.post_tonemap = renderer.ont_scene.pipeline.post_tonemap ? 1u : 0u;
+                ubo.post_gamma = renderer.ont_scene.pipeline.post_gamma ? 1u : 0u;
 
                 {
                     static int ubo_log_count = 0;

@@ -23,13 +23,32 @@ bool InputController::handleKeyDown(WPARAM wp, scene::CameraController& cam_ctrl
     if (wp == VK_F1) {
         mouse_look = !mouse_look;
         if (mouse_look) {
-            // Switch to FREE_FLY with mouse look
+            // Save current camera state into FREE_FLY before switching
+            Vec3 pos = cam_ctrl.getPosition();
+            Vec3 tgt = cam_ctrl.getTarget();
+            Vec3 dir = {tgt.x - pos.x, tgt.y - pos.y, tgt.z - pos.z};
+            f32 l = std::sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+            if (l > 0) { dir.x /= l; dir.y /= l; dir.z /= l; }
+            cam_ctrl.yaw = std::atan2(dir.z, dir.x);
+            cam_ctrl.pitch = std::asin(dir.y);
+            cam_ctrl.fly_position = pos;
+            cam_ctrl.fly_velocity = {0, 0, 0};
             cam_ctrl.mode = scene::CameraMode::FREE_FLY;
             GetCursorPos(&last_mouse);
             SetCapture(hwnd_viewport);
             ShowCursor(FALSE);
         } else {
-            // Switch back to ORBIT
+            // Save current camera state into ORBIT before switching
+            Vec3 pos = cam_ctrl.getPosition();
+            Vec3 tgt = cam_ctrl.getTarget();
+            Vec3 dir = {tgt.x - pos.x, tgt.y - pos.y, tgt.z - pos.z};
+            f32 l = std::sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+            cam_ctrl.orbit_target = tgt;
+            cam_ctrl.orbit_distance = l > 0.001f ? l : 5.0f;
+            cam_ctrl.target_distance = cam_ctrl.orbit_distance;
+            if (l > 0.001f) { dir.x /= l; dir.y /= l; dir.z /= l; }
+            cam_ctrl.orbit_azimuth = std::atan2(dir.z, dir.x);
+            cam_ctrl.orbit_elevation = std::asin(dir.y);
             cam_ctrl.mode = scene::CameraMode::ORBIT;
             ReleaseCapture();
             ShowCursor(TRUE);
@@ -67,7 +86,7 @@ bool InputController::handleMouseMove(LPARAM lp, scene::CameraController& cam_ct
         return true;
     }
 
-    // Middle mouse button drag for orbit
+    // Middle mouse button drag — always mouse look (rotate in place, no position change)
     if (mouse_dragging) {
         int x = GET_X_LPARAM(lp);
         int y = GET_Y_LPARAM(lp);
@@ -75,7 +94,7 @@ bool InputController::handleMouseMove(LPARAM lp, scene::CameraController& cam_ct
         int dy = y - drag_start.y;
         drag_start.x = x;
         drag_start.y = y;
-        cam_ctrl.orbitRotate((f32)dx, (f32)(-dy));
+        cam_ctrl.mouseLook((f32)dx, (f32)(-dy));
         return true;
     }
 
@@ -88,7 +107,8 @@ bool InputController::handleMouseButton(UINT msg, LPARAM lp, scene::CameraContro
         SetCapture(hwnd_capture);
         drag_start.x = GET_X_LPARAM(lp);
         drag_start.y = GET_Y_LPARAM(lp);
-        cam_ctrl.mode = scene::CameraMode::ORBIT;
+        // Don't force ORBIT here — let orbitRotate() handle the mode switch
+        // on first mouse move so it properly captures current camera state.
         return false;
     }
     if (msg == WM_MBUTTONUP) {

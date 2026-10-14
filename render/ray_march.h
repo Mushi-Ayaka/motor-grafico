@@ -94,6 +94,7 @@ inline f32 detailNoise(Vec3 p, f32 scale) {
 inline bool isBcDynamic(const uint8_t* bc, u32 len) {
     for (u32 i = 0; i + 4 < len; i += 5) {
         OntOpcode op = (OntOpcode)bc[i];
+        if (op == ONT_END) break;
         if (op == ONT_VAR_W) return true;
     }
     return false;
@@ -131,9 +132,13 @@ inline void applyMatrix(const float m[16], const Vec3& p, float& out_x, float& o
 }
 
 // Extract uniform scale factor from column-major 4x4 world→local matrix
-// d_world = d_local / col_len where col_len = |first column|
+// Uses RMS of all three columns to handle non-uniform scaling.
+// d_world = d_local / scale
 inline f32 extractScale(const float m[16]) {
-    return std::sqrt(m[0]*m[0] + m[1]*m[1] + m[2]*m[2]);
+    f32 c0 = m[0]*m[0] + m[1]*m[1] + m[2]*m[2];
+    f32 c1 = m[4]*m[4] + m[5]*m[5] + m[6]*m[6];
+    f32 c2 = m[8]*m[8] + m[9]*m[9] + m[10]*m[10];
+    return std::sqrt((c0 + c1 + c2) / 3.0f);
 }
 
 // Evaluate all dynamic graph nodes at point p (no BVH, direct traversal)
@@ -179,6 +184,7 @@ inline f32 bvhEval(const OntScene& sc, Vec3 p, f32 w, u32* out_material = nullpt
         f32 dy = std::fmax(0.0f, std::fmax(node.min[1] - p.y, p.y - node.max[1]));
         f32 dz = std::fmax(0.0f, std::fmax(node.min[2] - p.z, p.z - node.max[2]));
         if (dx*dx + dy*dy + dz*dz > result * result) {
+            if (node.skip_index < 0) break;
             node_idx = (u32)node.skip_index;
             continue;
         }
@@ -195,6 +201,7 @@ inline f32 bvhEval(const OntScene& sc, Vec3 p, f32 w, u32* out_material = nullpt
                 if (scale > 1e-8f) d /= scale;
                 if (d < result) { result = d; best_mat = g.material_id; }
             }
+            if (node.skip_index < 0) break;
             node_idx = (u32)node.skip_index;
         } else {
             node_idx++;
@@ -682,12 +689,17 @@ inline Vec3 shadeOnt(const OntScene& sc, Vec3 p, Vec3 n, Vec3 view_dir,
 // SDF Ambient Occlusion
 // ============================================================================
 
-inline f32 sdfAO(const OntScene& sc, Vec3 p, Vec3 n, f32 w) {
+inline f32 sdfAO(const OntScene& sc, Vec3 p, Vec3 n, f32 w, const BrickMap* bm = nullptr) {
     f32 occlusion = 0.0f;
     f32 step = 0.02f;
     for (int i = 1; i <= 4; i++) {
         f32 d = (f32)i * step;
-        f32 dist = bvhEval(sc, p + n * d, w);
+        Vec3 q = p + n * d;
+        f32 dist;
+        if (bm && bm->valid)
+            dist = evalBrickHybrid(sc, q, w, *bm);
+        else
+            dist = bvhEval(sc, q, w);
         occlusion += (d - dist) / d;
     }
     return 1.0f - std::fmin(std::fmax(occlusion, 0.0f), 1.0f);
@@ -814,7 +826,7 @@ inline void renderOntPixel(const OntScene& sc, Frame& fb, f32 w,
     Vec3 c;
     if (mr.hit) {
         Vec3 view_dir = normalize(sc.camera.position - mr.p);
-        f32 ao = sdfAO(sc, mr.p, mr.n, w);
+        f32 ao = sdfAO(sc, mr.p, mr.n, w, bm);
         if (lights) {
             c = shadeOnt(sc, mr.p, mr.n, view_dir, mr.material, pl, ao, lights, light_count);
         } else {

@@ -49,6 +49,15 @@ Resultados actuales: **219 tests, 0 fallos**
 
 ## Visor
 
+### Lanzamiento
+
+```batch
+run_visor.bat              → lanza visor con escena .ont
+debug_visor.bat            → lanza visor y pausa al cerrar (muestra código de salida)
+```
+
+El `debug_visor.bat` es útil para capturar errores de consola que de otro modo desaparecen al cerrar la ventana.
+
 ### Controles
 
 | Tecla/Mouse | Acción |
@@ -63,18 +72,18 @@ Resultados actuales: **219 tests, 0 fallos**
 ### Modalidad de escena
 
 El visor carga automáticamente en este orden:
-1. `.ont` + `.obs` (ontológico, desde `Lenguaje Hermetico/herm/build/`)
+1. `.ont` + `.obs` (ontológico, desde ruta en `run_visor.bat`)
 2. `.rih` (RIH JSON, desde `ejemplos/`)
 
 Si no encuentra ninguno, muestra pantalla en negro.
 
 ### Flujo de trabajo (ontológico)
 
-1. Compilar escena: `herm build.bat` produce `.ont` + `.obs`
+1. Compilar escena: `herm escena.herm --ont` produce `.ont` + `.obs`
 2. Visor carga `.ont` → `OntScene`, `.obs` → aplica cámara/luces/timeline
-3. `Renderer::render()` → `renderOntSceneMTSIMD()` (SIMD + multi-thread)
-4. Adaptive resolution: 0.25× durante movimiento, 1× tras 400ms idle
-5. `StretchDIBits` upscales al viewport
+3. GPU path: `drawFrame()` → compute shader Vulkan (producción)
+4. CPU path (fallback): `renderOntSceneMTSIMD()` (SIMD + multi-thread)
+5. Adaptive resolution: 0.25× durante movimiento, 1× tras 400ms idle
 6. FPS overlay: verde, muestra FPS/render ms/pump ms/scale
 
 ### Flujo de trabajo (RIH)

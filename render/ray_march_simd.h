@@ -568,7 +568,8 @@ inline void evalBrickHybrid4(const OntScene& sc, f32 w,
 inline void bvhNormal4(const OntScene& sc,
                         f32 px[4], f32 py[4], f32 pz[4], f32 w,
                         f32 nx[4], f32 ny[4], f32 nz[4],
-                        const BrickMap* bm = nullptr) {
+                        const BrickMap* bm = nullptr,
+                        const bool hit_mask[4] = nullptr) {
     const f32 eps = 0.001f;
     f32 d[4];
     u32 dummy_mat[4];
@@ -598,6 +599,7 @@ inline void bvhNormal4(const OntScene& sc,
     for (int i = 0; i < 4; i++) nz[i] = dd[i] - d[i];
 
     for (int i = 0; i < 4; i++) {
+        if (hit_mask && !hit_mask[i]) { nx[i] = 0; ny[i] = 1; nz[i] = 0; continue; }
         f32 len = std::sqrt(nx[i]*nx[i] + ny[i]*ny[i] + nz[i]*nz[i]);
         if (len > 1e-8f) { nx[i] /= len; ny[i] /= len; nz[i] /= len; }
     }
@@ -612,7 +614,8 @@ inline void sdfAO4(const OntScene& sc,
                    f32 px[4], f32 py[4], f32 pz[4], f32 w,
                    f32 nx[4], f32 ny[4], f32 nz[4],
                    f32 ao[4],
-                   const BrickMap* bm = nullptr) {
+                   const BrickMap* bm = nullptr,
+                   const bool hit_mask[4] = nullptr) {
     bool active_all[4] = {true, true, true, true};
     u32 dummy_mat[4];
     for (int i = 0; i < 4; i++) ao[i] = 0.0f;
@@ -621,6 +624,7 @@ inline void sdfAO4(const OntScene& sc,
         f32 d_step = (f32)step * 0.02f;
         f32 qx[4], qy[4], qz[4], dist[4];
         for (int i = 0; i < 4; i++) {
+            if (hit_mask && !hit_mask[i]) { dist[i] = 1e9f; continue; }
             qx[i] = px[i] + nx[i] * d_step;
             qy[i] = py[i] + ny[i] * d_step;
             qz[i] = pz[i] + nz[i] * d_step;
@@ -631,11 +635,14 @@ inline void sdfAO4(const OntScene& sc,
             bvhEval4(sc, qx, qy, qz, w, dist, dummy_mat);
         }
         for (int i = 0; i < 4; i++)
-            ao[i] += (d_step - dist[i]) / d_step;
+            if (!hit_mask || hit_mask[i])
+                ao[i] += (d_step - dist[i]) / d_step;
     }
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; i++) {
+        if (hit_mask && !hit_mask[i]) { ao[i] = 1.0f; continue; }
         ao[i] = 1.0f - std::fmin(std::fmax(ao[i], 0.0f), 1.0f);
+    }
 }
 
 // ============================================================================
@@ -755,9 +762,9 @@ inline void renderOntSceneSIMD(const OntScene& sc, Frame& fb, f32 w,
             }
 
             // SIMD batch normal + AO for all 4 pixels (uses brick map if available)
-            bvhNormal4(sc, px, py, pz, w, nx, ny, nz, bm);
+            bvhNormal4(sc, px, py, pz, w, nx, ny, nz, bm, hit);
             f32 ao[4];
-            sdfAO4(sc, px, py, pz, w, nx, ny, nz, ao, bm);
+            sdfAO4(sc, px, py, pz, w, nx, ny, nz, ao, bm, hit);
 
             // Shade each pixel
             for (int i = 0; i < 4; i++) {
@@ -946,9 +953,9 @@ inline void renderOntSceneMTSIMD(const OntScene& sc, Frame& fb, f32 w,
                     }
 
                     // SIMD batch normal + AO for all 4 pixels (uses brick map if available)
-                    bvhNormal4(sc, px, py, pz, w, nx, ny, nz, bm);
+                    bvhNormal4(sc, px, py, pz, w, nx, ny, nz, bm, hit);
                     f32 ao[4];
-                    sdfAO4(sc, px, py, pz, w, nx, ny, nz, ao, bm);
+                    sdfAO4(sc, px, py, pz, w, nx, ny, nz, ao, bm, hit);
 
                     for (int pi = 0; pi < 4; pi++) {
                         Vec3 c;

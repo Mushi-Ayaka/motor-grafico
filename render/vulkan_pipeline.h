@@ -26,12 +26,16 @@ struct UboData {
     uint32_t width;
     uint32_t height;
     float trace_t_max;       // matches GLSL UboData.tmax (std140: offset 64)
-    float _pad0;             // std140 struct alignment padding to 80
+    float shade_ambient;     // PipelineConfig.shade_ambient
+    float shade_specular;    // PipelineConfig.shade_specular
+    float post_exposure;     // PipelineConfig.post_exposure
+    uint32_t post_tonemap;   // PipelineConfig.post_tonemap (bool)
+    uint32_t post_gamma;     // PipelineConfig.post_gamma (bool)
+    float _pad0;             // std140 alignment padding
     float _pad1;
-    float _pad2;
 };
 
-static_assert(sizeof(UboData) == 80, "UboData must be exactly 80 bytes for std140 layout");
+static_assert(sizeof(UboData) == 96, "UboData must be exactly 96 bytes for std140 layout");
 
 struct VulkanSceneData {
     BufferAllocation bvh_buffer;

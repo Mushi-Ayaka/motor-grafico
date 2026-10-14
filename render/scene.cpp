@@ -35,6 +35,31 @@ bool OntScene::loadOnt(const FileMapping& fm) {
     width = 800; height = 600;
     pipeline.trace_hit_threshold = hdr->epsilon;
 
+    // Fix BVH AABBs: the .ont file may have incorrect AABBs that don't
+    // encompass all graph nodes. Recompute from graph node AABBs
+    // for ALL nodes (both leaf and internal) using first_node/node_count.
+    for (uint32_t i = 0; i < hdr->bvh_count; i++) {
+        OntBvhNode* node = const_cast<OntBvhNode*>(bvh_nodes + i);
+
+        float mn[3] = { 1e30f, 1e30f, 1e30f };
+        float mx[3] = { -1e30f, -1e30f, -1e30f };
+
+        uint32_t first = node->first_node;
+        uint32_t count = node->node_count;
+        for (uint32_t j = 0; j < count; j++) {
+            const OntGraphNode& gn = graph_nodes[first + j];
+            for (int k = 0; k < 3; k++) {
+                if (gn.bbox_min[k] < mn[k]) mn[k] = gn.bbox_min[k];
+                if (gn.bbox_max[k] > mx[k]) mx[k] = gn.bbox_max[k];
+            }
+        }
+
+        for (int k = 0; k < 3; k++) {
+            node->min[k] = mn[k];
+            node->max[k] = mx[k];
+        }
+    }
+
     return true;
 }
 
@@ -129,12 +154,46 @@ void OntScene::applyObs() {
 }
 
 void OntScene::loadDefault() {
-    // Create a simple sphere scene in .ont format
+    // Build properly padded bytecode: each instruction is exactly 5 bytes.
+    // Non-CONST opcodes use 1 byte + 4 padding bytes, CONST uses 1 byte + 4 float bytes.
+    // sqrt(x*x + y*y + z*z) - 1.0  — 17 instructions × 5 = 85 bytes
+    auto makeBc = []() -> std::vector<uint8_t> {
+        std::vector<uint8_t> bc;
+        auto emit1 = [&](uint8_t op) {
+            bc.push_back(op);
+            bc.push_back(0); bc.push_back(0); bc.push_back(0); bc.push_back(0); // padding
+        };
+        auto emitConst = [&](float v) {
+            bc.push_back(ONT_CONST);
+            auto* p = reinterpret_cast<const uint8_t*>(&v);
+            bc.insert(bc.end(), p, p + 4);
+        };
+        emitConst(1.0f);
+        emit1(ONT_VAR_X);
+        emit1(ONT_VAR_X);
+        emit1(ONT_MUL);
+        emit1(ONT_VAR_Y);
+        emit1(ONT_VAR_Y);
+        emit1(ONT_MUL);
+        emit1(ONT_ADD);
+        emit1(ONT_VAR_Z);
+        emit1(ONT_VAR_Z);
+        emit1(ONT_MUL);
+        emit1(ONT_ADD);
+        emit1(ONT_SQRT);
+        emitConst(-1.0f);
+        emit1(ONT_ADD);
+        emit1(ONT_END);
+        return bc;
+    };
+
+    auto bc = makeBc();
+
     struct {
         OntHeader hdr;
         OntBvhNode bvh;
         OntGraphNode gn;
-        uint8_t bc[15]; // CONST 1.0, VAR_X, VAR_X, MUL, VAR_Y, VAR_Y, MUL, ADD, VAR_Z, VAR_Z, MUL, ADD, SQRT, CONST -1.0, ADD, END
+        uint8_t _bc[256];
         OntMaterial mat;
     } ont;
 
@@ -145,7 +204,7 @@ void OntScene::loadDefault() {
     ont.hdr.node_count = 1;
     ont.hdr.bvh_count = 1;
     ont.hdr.material_count = 1;
-    ont.hdr.bytecode_size = 15;
+    ont.hdr.bytecode_size = (uint32_t)bc.size();
     ont.hdr.scene_aabb_min[0] = ont.hdr.scene_aabb_min[1] = ont.hdr.scene_aabb_min[2] = -2;
     ont.hdr.scene_aabb_max[0] = ont.hdr.scene_aabb_max[1] = ont.hdr.scene_aabb_max[2] = 2;
 
@@ -168,47 +227,11 @@ void OntScene::loadDefault() {
     ont.gn.local_transform[15] = 1;
     ont.gn.material_id = 0;
     ont.gn.bytecode_offset = 0;
-    ont.gn.bytecode_length = 15;
+    ont.gn.bytecode_length = (uint32_t)bc.size();
     ont.gn.bbox_min[0] = ont.gn.bbox_min[1] = ont.gn.bbox_min[2] = -1;
     ont.gn.bbox_max[0] = ont.gn.bbox_max[1] = ont.gn.bbox_max[2] = 1;
 
-    // Bytecode: sqrt(x*x + y*y + z*z) - 1.0
-    // CONST 1.0, VAR_X, VAR_X, MUL, VAR_Y, VAR_Y, MUL, ADD, VAR_Z, VAR_Z, MUL, ADD, SQRT, CONST -1.0, ADD, END = 16 instructions
-    // Actually: PUSH_CONST 1.0, MUL x x, MUL y y, ADD, MUL z z, ADD, SQRT, SUB 1.0... simpler:
-    // Just do: sqrt(x*x + y*y + z*z) - 1.0 as bytecode
-    uint8_t bc[] = {
-        ONT_CONST, 0,0,0,0,  // placeholder 1.0
-        ONT_VAR_X, ONT_VAR_X, ONT_MUL,
-        ONT_VAR_Y, ONT_VAR_Y, ONT_MUL, ONT_ADD,
-        ONT_VAR_Z, ONT_VAR_Z, ONT_MUL, ONT_ADD,
-        ONT_SQRT,
-        ONT_CONST, 0,0,0,0,  // placeholder -1.0
-        ONT_ADD,
-        ONT_END
-    };
-    uint8_t raw_bc[] = {
-        ONT_CONST, 0,0,0,0,  // 5: 1.0
-        ONT_VAR_X,            // 6
-        ONT_VAR_X,            // 7
-        ONT_MUL,              // 8
-        ONT_VAR_Y,            // 9
-        ONT_VAR_Y,            // 10
-        ONT_MUL,              // 11
-        ONT_ADD,              // 12
-        ONT_VAR_Z,            // 13
-        ONT_VAR_Z,            // 14
-        ONT_MUL,              // 15
-        ONT_ADD,              // 16
-        ONT_SQRT,             // 17
-        ONT_CONST, 0,0,0,0,  // 22: -1.0
-        ONT_ADD,              // 23
-        ONT_END               // 24
-    };
-    { float v = 1.0f; memcpy(&raw_bc[1], &v, 4); }
-    { float v = -1.0f; memcpy(&raw_bc[18], &v, 4); }
-
-    ont.hdr.bytecode_size = sizeof(raw_bc);
-    memcpy(ont.bc, raw_bc, sizeof(raw_bc));
+    memcpy(ont._bc, bc.data(), bc.size());
 
     // Material: red-ish
     ont.mat.id = 0;
@@ -226,7 +249,8 @@ void OntScene::loadDefault() {
     bvh_nodes = (const OntBvhNode*)(_data.data() + sizeof(OntHeader));
     graph_nodes = (const OntGraphNode*)(bvh_nodes + header->bvh_count);
     bytecode = (const uint8_t*)(graph_nodes + header->node_count);
-    materials = (const OntMaterial*)(bytecode + header->bytecode_size);
+    // mat is the last member of the struct, after _bc[256]
+    materials = (const OntMaterial*)(_data.data() + sizeof(ont) - sizeof(OntMaterial));
 }
 
 // ============================================================================

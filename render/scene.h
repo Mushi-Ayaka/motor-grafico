@@ -329,6 +329,7 @@ struct BrickMap {
         free(bricks); bricks = nullptr;
         free(dyn_node_indices); dyn_node_indices = nullptr;
         brick_count = 0;
+        for (u32 i = 0; i < TOP_RES * TOP_RES * TOP_RES; i++) top_indices[i] = SENTINEL;
         valid = false;
     }
 };

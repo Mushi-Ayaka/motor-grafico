@@ -11,6 +11,15 @@ extern "C" {
     void _cdecl_jit_cos_ps_ref(float* v) {
         v[0] = cosf(v[0]); v[1] = cosf(v[1]); v[2] = cosf(v[2]); v[3] = cosf(v[3]);
     }
+    void _cdecl_jit_tan_ps_ref(float* v) {
+        v[0] = tanf(v[0]); v[1] = tanf(v[1]); v[2] = tanf(v[2]); v[3] = tanf(v[3]);
+    }
+    void _cdecl_jit_floor_ps_ref(float* v) {
+        v[0] = floorf(v[0]); v[1] = floorf(v[1]); v[2] = floorf(v[2]); v[3] = floorf(v[3]);
+    }
+    void _cdecl_jit_ceil_ps_ref(float* v) {
+        v[0] = ceilf(v[0]); v[1] = ceilf(v[1]); v[2] = ceilf(v[2]); v[3] = ceilf(v[3]);
+    }
     void _cdecl_jit_pow_ps_ref(float* v, const float* y) {
         v[0] = powf(v[0], y[0]); v[1] = powf(v[1], y[1]); v[2] = powf(v[2], y[2]); v[3] = powf(v[3], y[3]);
     }
@@ -201,6 +210,51 @@ SdfJitFunc4 JitCompiler::compileNode(const uint8_t* bc, size_t bc_len, uint32_t 
                     cc.lea(ptr, mem);
                     asmjit::InvokeNode* invoke_node;
                     cc.invoke(asmjit::Out(invoke_node), asmjit::imm((void*)_cdecl_jit_cos_ps_ref), asmjit::FuncSignature::build<void, void*>());
+                    invoke_node->set_arg(0, ptr);
+                    x86::Vec r = cc.new_xmm_ps();
+                    cc.movaps(r, mem);
+                    stack.push_back(r);
+                }
+            } break;
+            case ONT_TAN: {
+                if (stack.size() >= 1) {
+                    x86::Vec a = stack.back(); stack.pop_back();
+                    x86::Mem mem = cc.new_stack(16, 16);
+                    cc.movaps(mem, a);
+                    x86::Gp ptr = cc.new_gp_ptr();
+                    cc.lea(ptr, mem);
+                    asmjit::InvokeNode* invoke_node;
+                    cc.invoke(asmjit::Out(invoke_node), asmjit::imm((void*)_cdecl_jit_tan_ps_ref), asmjit::FuncSignature::build<void, void*>());
+                    invoke_node->set_arg(0, ptr);
+                    x86::Vec r = cc.new_xmm_ps();
+                    cc.movaps(r, mem);
+                    stack.push_back(r);
+                }
+            } break;
+            case ONT_FLOOR: {
+                if (stack.size() >= 1) {
+                    x86::Vec a = stack.back(); stack.pop_back();
+                    x86::Mem mem = cc.new_stack(16, 16);
+                    cc.movaps(mem, a);
+                    x86::Gp ptr = cc.new_gp_ptr();
+                    cc.lea(ptr, mem);
+                    asmjit::InvokeNode* invoke_node;
+                    cc.invoke(asmjit::Out(invoke_node), asmjit::imm((void*)_cdecl_jit_floor_ps_ref), asmjit::FuncSignature::build<void, void*>());
+                    invoke_node->set_arg(0, ptr);
+                    x86::Vec r = cc.new_xmm_ps();
+                    cc.movaps(r, mem);
+                    stack.push_back(r);
+                }
+            } break;
+            case ONT_CEIL: {
+                if (stack.size() >= 1) {
+                    x86::Vec a = stack.back(); stack.pop_back();
+                    x86::Mem mem = cc.new_stack(16, 16);
+                    cc.movaps(mem, a);
+                    x86::Gp ptr = cc.new_gp_ptr();
+                    cc.lea(ptr, mem);
+                    asmjit::InvokeNode* invoke_node;
+                    cc.invoke(asmjit::Out(invoke_node), asmjit::imm((void*)_cdecl_jit_ceil_ps_ref), asmjit::FuncSignature::build<void, void*>());
                     invoke_node->set_arg(0, ptr);
                     x86::Vec r = cc.new_xmm_ps();
                     cc.movaps(r, mem);

@@ -66,7 +66,6 @@ struct Renderer {
         arena.init(64 * 1024 * 1024);
         if (!ont_scene.loadOnt(fm)) {
             ont_scene.loadDefault();
-            return false;
         }
         ont_mode = true;
 

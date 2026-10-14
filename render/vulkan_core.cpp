@@ -495,6 +495,7 @@ void VulkanContext::cleanupSwapchain() {
 }
 
 void VulkanContext::cleanup() {
+    if (instance == VK_NULL_HANDLE) return;
     vkDeviceWaitIdle(device);
     cleanupSwapchain();
     if (command_pool) vkDestroyCommandPool(device, command_pool, nullptr);
@@ -689,7 +690,7 @@ bool VulkanContext::drawFrame(VulkanSceneData& scene_data, uint32_t render_w, ui
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     VkSemaphore waitSemaphores[] = {image_available_sem};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;

@@ -1,6 +1,44 @@
 # 08 — Changelog
 
-> **Vida del proyecto:** 4 de junio → 17 de junio de 2026 (v0.15–v0.26)
+> **Vida del proyecto:** 4 de junio → 14 de julio de 2026 (v0.15–v0.27)
+
+## 2026-07-14 — v0.27 — Fix ODR en Pipeline Herm → Ont + Configuración Local
+
+### Resumen
+
+Esta versión corrige un crash crítico en el pipeline de compilación Herm → `.ont`: una violación ODR (One Definition Rule) entre `herm_ont.cpp` y `herm_render.cpp` causaba ACCESS_VIOLATION al escribir el archivo `.ont`. Se renombró `FlatNode` → `OntFlatNode` para eliminar el conflicto de linking.
+
+Además, se configuró el proyecto para esta máquina local: rutas relativas corregidas en los batch files de lanzamiento, y se añadió `debug_visor.bat` para depuración directa con escena `.ont`. El visor se reconstruyó exitosamente con `build.bat`.
+
+### Pipeline Herm → `.ont`
+
+| Problema | Causa | Fix |
+|----------|-------|-----|
+| Crash ACCESS_VIOLATION (0xC0000005) al escribir `.ont` | ODR: `herm_ont.cpp` y `herm_render.cpp` definían `struct FlatNode` con distintos layouts. MSVC vinculaba la especialización incorrecta de `std::vector<FlatNode>::push_back`. | Renombrar `FlatNode` → `OntFlatNode` en `herm_ont.cpp` |
+| Path `.ont` output basado en `rfind('.')` | `rfind('.')` en path con puntos adicionales fallaba | Usar `rfind(".herm")` para detectar extensión correcta |
+
+### Batch files del visor
+
+| Archivo | Cambio | Descripción |
+|---------|--------|-------------|
+| `run_visor.bat` | Corregida ruta relativa | Quitado un nivel de `..\..\` — ahora apunta correctamente a `proyectos-index\...` |
+| `debug_visor.bat` | Nuevo | Lanza visor con escena `.ont`, espera cierre, muestra código de salida. Útil para ver errores de consola sin que la ventana se cierre. |
+| `build.bat` | Sin cambios funcionales | Ya compila correctamente con Vulkan SDK 1.4.350.0 + asmjit |
+
+### Estado del pipeline local
+
+- El compilador Hermético (`herm.exe`) genera `.ont` + `.obs` correctamente (sin crash)
+- El visor (`visor.exe`) carga `.ont` con geometría y materiales PBR
+- Nota: las escenas de prueba (`test_minimo.herm`, `catedral_hermetica.herm`) existen solo en la máquina anterior, no localmente
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `run_visor.bat` | Ruta relativa corregida (1 nivel menos) |
+| `debug_visor.bat` | Creado: lanza visor con escena `.ont` y pausa al salir |
+
+---
 
 ## 2026-09-15 — Sprint 2: Anomaly Gate, Thread-Safety, Timeline, Gizmos, Undo/Redo
 

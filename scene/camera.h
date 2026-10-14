@@ -125,11 +125,16 @@ struct CameraController {
         if (mode != CameraMode::ORBIT) {
             mode = CameraMode::ORBIT;
             Vec3 pos = getPosition();
-            Vec3 fwd = getForward();
-            orbit_distance = std::sqrt(pos.x*pos.x + pos.y*pos.y + pos.z*pos.z);
+            Vec3 tgt = getTarget();
+            orbit_target = tgt;
+            Vec3 dir = {tgt.x - pos.x, tgt.y - pos.y, tgt.z - pos.z};
+            orbit_distance = std::sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
             target_distance = orbit_distance;
-            orbit_azimuth = std::atan2(pos.z, pos.x);
-            orbit_elevation = std::asin(pos.y / orbit_distance);
+            if (orbit_distance > 0.001f) {
+                dir.x /= orbit_distance; dir.y /= orbit_distance; dir.z /= orbit_distance;
+            }
+            orbit_azimuth = std::atan2(dir.z, dir.x);
+            orbit_elevation = std::asin(dir.y);
         }
         orbit_azimuth   += dx * sensitivity * 10.0f;
         orbit_elevation += dy * sensitivity * 10.0f;
@@ -155,6 +160,27 @@ struct CameraController {
 
     // Update position from fly input
     void updateFly(f32 dt, bool forward, bool backward, bool left, bool right, bool up, bool down) {
+        if (mode == CameraMode::ORBIT) {
+            // Move orbit target directly instead of switching to FREE_FLY,
+            // so mouse orbit rotation and WASD work together without mode flips.
+            if (forward || backward || left || right || up || down) {
+                f32 ca = std::cos(orbit_azimuth);
+                f32 sa = std::sin(orbit_azimuth);
+                f32 ce = std::cos(orbit_elevation);
+                f32 se = std::sin(orbit_elevation);
+                // Forward = direction from camera to target (into the scene)
+                Vec3 fwd = {ca * ce, se, sa * ce};
+                Vec3 rgt = {-sa, 0, ca}; // purely horizontal right
+                f32 speed = fly_speed * dt;
+                if (forward)  { orbit_target.x += fwd.x * speed; orbit_target.y += fwd.y * speed; orbit_target.z += fwd.z * speed; }
+                if (backward) { orbit_target.x -= fwd.x * speed; orbit_target.y -= fwd.y * speed; orbit_target.z -= fwd.z * speed; }
+                if (left)     { orbit_target.x -= rgt.x * speed; orbit_target.z -= rgt.z * speed; }
+                if (right)    { orbit_target.x += rgt.x * speed; orbit_target.z += rgt.z * speed; }
+                if (up)       orbit_target.y += speed;
+                if (down)     orbit_target.y -= speed;
+            }
+            return;
+        }
         if (mode != CameraMode::FREE_FLY) {
             // Auto-switch to FREE_FLY on first WASD input
             if (forward || backward || left || right || up || down) {
@@ -198,9 +224,21 @@ struct CameraController {
         fly_position.z += fly_velocity.z * dt;
     }
 
-    // Mouse look for free fly
+    // Mouse look — rotate view direction without changing position
     void mouseLook(f32 dx, f32 dy) {
-        if (mode != CameraMode::FREE_FLY) return;
+        if (mode != CameraMode::FREE_FLY) {
+            // Auto-switch to FREE_FLY, preserving current position and direction
+            Vec3 pos = getPosition();
+            Vec3 tgt = getTarget();
+            Vec3 dir = {tgt.x - pos.x, tgt.y - pos.y, tgt.z - pos.z};
+            f32 l = std::sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+            if (l > 0) { dir.x /= l; dir.y /= l; dir.z /= l; }
+            yaw = std::atan2(dir.z, dir.x);
+            pitch = std::asin(dir.y);
+            fly_position = pos;
+            fly_velocity = {0, 0, 0};
+            mode = CameraMode::FREE_FLY;
+        }
         yaw   += dx * sensitivity;
         pitch += dy * sensitivity;
         pitch = std::fmax(-1.5f, std::fmin(1.5f, pitch));
